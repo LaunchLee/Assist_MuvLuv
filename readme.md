@@ -15,7 +15,8 @@ distractions to me rather than their game system and forms interesting me.
 
 In game system, they are just leisures and well organized presentations where
 the same operations and decision-making forms inside. Maybe the repeating
-is the game itself in most cases.
+is the game itself in most cases such as life but if so where the reincarnation
+happens? Wired.
 
 ## The Script(s)
 
@@ -24,6 +25,12 @@ The script(s) can be directly ran by
 Windows. And there are some OpenCV-related files with
 thanks to the implementation of
 [AutoIt-OpenCV-COM](https://github.com/smbape/node-autoit-opencv-com).
+
+The algorithm of finding template in OpenCV is based on the covariance of two
+images by default so if the original image is averagely changed like changing
+lightness it would be still matched as the covariance is not changed too much.
+The complexity of it is the multiply of the pixels of the two images
+respectively. The implementation of it works on CPU.
 
 I initially tried to use [AutoHotkey](https://www.autohotkey.com/), but the
 function "ImageSearch" in its library is too simple to search image. After
