@@ -171,7 +171,7 @@ EndFunc
 ; Name ..........: ImageSearch
 ; Description ...: Find image in the game window or subarea relative to the game.
 ; Syntax ........: ImageSearch($sImageFile[, $fThreshold = 0.8[, $arrSubArea = Default[, $iBaseHeight = 712]]])
-; Parameters ....: $sImageFile      - image path.
+; Parameters ....: $sImageFile      - Image path.
 ;                  $fThreshold      - [optional] The threshold. Default is 0.8
 ;                  $arrSubArea      - [optional] The sub area [x, y, w, h] relative to the game window. Default is the
 ;                                                whole game window.
@@ -226,7 +226,7 @@ Func ImageSearch($sImageFile, $fThreshold = 0.8, $arrSubArea = Default, $iBaseHe
     EndIf
 EndFunc
 
-; When no shifts, default to click the center of the image. The shifts is relative to the center.
+; When no shifts, default to click the center of the image. The shifts are relative to the center.
 Func ClickRelateWindow($arrArea, $arrRect, $iShiftX = 0, $iShiftY = 0, $bBgClick = False)
     If $bBgClick Then
         ; Only when this message is accepted, but mostly can't because it's cheat apparently.
@@ -241,7 +241,8 @@ Func ClickRelateWindow($arrArea, $arrRect, $iShiftX = 0, $iShiftY = 0, $bBgClick
     EndIf
 EndFunc
 
-; CD: If the image will still be presented for a while after clicked, then if in the next loop the same image is the
+; CD: If the image would still be presented for a while after being clicked,
+; then if in the next loop the same image is the
 ; "next" detected, skip it for 1 as the CD unit.
 Func ClickImage($sImageFile, $fThreshold = 0.85, $iShiftX = 0, $iShiftY = 0, $bCDOn = False, $iCDMax = 2, $arrSubArea = Default)
     Static $sCDImageFile = ""
