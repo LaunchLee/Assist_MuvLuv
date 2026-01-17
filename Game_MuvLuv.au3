@@ -443,9 +443,9 @@ Func AutoClick()
 
         WinActivate($sGameWinTitle)
 
-        Local $fLowerThreshold = 0.78
-        Local $fDefaultThreshold = 0.85
-        Local $fHigherThreshold = 0.92
+        Local $fLowerThreshold = 0.70
+        Local $fDefaultThreshold = 0.80
+        Local $fHigherThreshold = 0.90
         Local $bDefaultCDOn = False
         Local $iDefaultCDFactor = 2
 
@@ -457,7 +457,7 @@ Func AutoClick()
 
         Local $arrSubAreaCorRB = [781, 493, 483, 219]
         If ClickImage($sGameResDir & "Maze_Ready.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaCorRB) Or _
-           ClickImage($sGameResDir & "Maze_Route.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaCorRB) Or _
+           ClickImage($sGameResDir & "Maze_Route.png", $fLowerThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaCorRB) Or _
            ClickImage($sGameResDir & "Quest_Enter.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaCorRB) Then
             ActionPause(2500)
             Return
@@ -501,12 +501,12 @@ Func AutoClick()
         ClickImage($sGameResDir & "Maze_SelRelic.png", $fDefaultThreshold, 0, 150, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaSetM1)
 
         Local $arrSubAreaSetM2 = [385, 238, 203, 45]
-        ClickImage($sGameResDir & "Maze_SelTypeA.png", $fDefaultThreshold, 270, 145, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaSetM2)
-        ClickImage($sGameResDir & "Maze_SelTypeB.png", $fDefaultThreshold, 270, 145, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaSetM2)
+        ClickImage($sGameResDir & "Maze_SelTypeA.png", $fLowerThreshold, 270, 145, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaSetM2)
+        ClickImage($sGameResDir & "Maze_SelTypeB.png", $fLowerThreshold, 270, 145, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaSetM2)
 
         Local $arrSubAreaSetM3 = [1007, 254, 206, 44]
-        ClickImage($sGameResDir & "Maze_SelHelperA.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaSetM3)
-        ClickImage($sGameResDir & "Maze_SelHelperB.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaSetM3)
+        ClickImage($sGameResDir & "Maze_SelHelperA.png", $fLowerThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaSetM3)
+        ClickImage($sGameResDir & "Maze_SelHelperB.png", $fLowerThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaSetM3)
 
         Local $arrSubAreaSetM4 = [67, 386, 229, 78]
         ClickImage($sGameResDir & "Maze_Trans.png", $fDefaultThreshold, 960, 240, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaSetM4)
@@ -517,8 +517,8 @@ Func AutoClick()
         EndIf
 
         If IsArray(ImageSearch($sGameResDir & "Com_TryAgain.png", $fDefaultThreshold, $arrSubAreaCorRB)) Or _
-           IsArray(ImageSearch($sGameResDir & "Com_Limited.png", $fLowerThreshold, $arrSubAreaCorRB)) Or _
-           IsArray(ImageSearch($sGameResDir & "Quest_Clear.png", $fLowerThreshold, $arrSubAreaCorRB)) Or _
+           IsArray(ImageSearch($sGameResDir & "Com_Limited.png", $fDefaultThreshold, $arrSubAreaCorRB)) Or _
+           IsArray(ImageSearch($sGameResDir & "Quest_Clear.png", $fDefaultThreshold, $arrSubAreaCorRB)) Or _
            IsArray(ImageSearch($sGameResDir & "ADV_Menu.png", $fDefaultThreshold, $arrSubAreaCorRU)) Then
             ActionStop()
         EndIf
