@@ -210,9 +210,11 @@ Func ImageSearch($sImageFile, $fThreshold = 0.8, $arrSubArea = Default, $iBaseHe
     EndIf
 
     Local $iN = 1
+    ; Gray
     Local $imgTemplOpt = $cv.cvtColor($imgTempl, 6)
     Local $imgScreenOpt = $cv.cvtColor($imgScreen, 6)
-    If $imgScreen.width > $imgTempl.width And $imgScreen.height > $imgTempl.height Then
+    Local $iTotalCosts = $imgScreen.width * $imgScreen.height * $imgTempl.width * $imgTempl.height
+    If $iTotalCosts > 147456000000 Then
         $iN = 2
         $imgTemplOpt = $cv.resize($imgTemplOpt, _OpenCV_Size($imgTempl.width / $iN, $imgTempl.height / $iN))
         $imgScreenOpt = $cv.resize($imgScreenOpt, _OpenCV_Size($imgScreen.width / $iN, $imgScreen.height / $iN))
@@ -443,8 +445,8 @@ Func AutoClick()
 
         WinActivate($sGameWinTitle)
 
-        Local $fLowerThreshold = 0.70
-        Local $fDefaultThreshold = 0.80
+        Local $fLowerThreshold = 0.80
+        Local $fDefaultThreshold = 0.85
         Local $fHigherThreshold = 0.90
         Local $bDefaultCDOn = False
         Local $iDefaultCDFactor = 2
@@ -505,8 +507,8 @@ Func AutoClick()
         ClickImage($sGameResDir & "Maze_SelTypeB.png", $fLowerThreshold, 270, 145, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaSetM2)
 
         Local $arrSubAreaSetM3 = [1007, 254, 206, 44]
-        ClickImage($sGameResDir & "Maze_SelHelperA.png", $fLowerThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaSetM3)
-        ClickImage($sGameResDir & "Maze_SelHelperB.png", $fLowerThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaSetM3)
+        ClickImage($sGameResDir & "Maze_SelHelperA.png", $fHigherThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaSetM3)
+        ClickImage($sGameResDir & "Maze_SelHelperB.png", $fHigherThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaSetM3)
 
         Local $arrSubAreaSetM4 = [67, 386, 229, 78]
         ClickImage($sGameResDir & "Maze_Trans.png", $fDefaultThreshold, 960, 240, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaSetM4)
@@ -529,8 +531,8 @@ Func AutoClick()
             $bSingleRunning = True
             Sleep($iReactionTimer)
             If Not $bRunning Then Return
-            Local $arrSubAreaSetM6 = [315, 580, 70, 30]
-            If IsArray(ImageSearch($sGameResDir & "MazeShop\Daily_Clear.png", $fHigherThreshold, $arrSubAreaSetM6)) Then
+            Local $arrSubAreaSetM6 = [315, 580, 70, 35]
+            If IsArray(ImageSearch($sGameResDir & "MazeShop\Daily_Clear.png", $fLowerThreshold, $arrSubAreaSetM6)) Then
                 If $bMazeFarmingOn Then
                     MazeShopFarming()
                 Else
