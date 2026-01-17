@@ -517,8 +517,8 @@ Func AutoClick()
         EndIf
 
         If IsArray(ImageSearch($sGameResDir & "Com_TryAgain.png", $fDefaultThreshold, $arrSubAreaCorRB)) Or _
-           IsArray(ImageSearch($sGameResDir & "Com_Limited.png", $fHigherThreshold, $arrSubAreaCorRB)) Or _
-           IsArray(ImageSearch($sGameResDir & "Quest_Clear.png", $fHigherThreshold, $arrSubAreaCorRB)) Or _
+           IsArray(ImageSearch($sGameResDir & "Com_Limited.png", $fLowerThreshold, $arrSubAreaCorRB)) Or _
+           IsArray(ImageSearch($sGameResDir & "Quest_Clear.png", $fLowerThreshold, $arrSubAreaCorRB)) Or _
            IsArray(ImageSearch($sGameResDir & "ADV_Menu.png", $fDefaultThreshold, $arrSubAreaCorRU)) Then
             ActionStop()
         EndIf
