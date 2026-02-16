@@ -52,6 +52,10 @@ window is resized to 1280x720 by
 [SmartSystemMenu](https://github.com/AlexanderPro/SmartSystemMenu)
 making the game window size 1264x712.
 
+SmartSystemMenu may influence some 3D games performance. For example, the
+refresh rate will be unexpectedly low while moving mouse to change direction.
+So it is not recommended to keep it running in the background all the time.
+
 Repeating operations scenarios:
 
 1. Consecutive 5 battles in story or event (not the event of new story
