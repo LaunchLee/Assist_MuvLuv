@@ -21,77 +21,69 @@ _OpenCV_Open("Libs\opencv\build\x64\vc16\bin\opencv_world4120.dll", "Libs\autoit
 _GDIPlus_Startup()
 OnAutoItExitRegister("_OnAutoItExit")
 
-Global $sGameWinTitle = "マブラヴ"
-Global $sGameResDir = @ScriptDir & "\Games\MuvLuv\"
-Global $sScriptLog = @ScriptDir & "\Game_MuvLuv.log"
-Global $iLoopTimer = 500
+Global $sGameWinTitle   = "マブラヴ"
+Global $sGameResDir     = @ScriptDir & "\Games\MuvLuv\"
+Global $sScriptLog      = @ScriptDir & "\Game_MuvLuv.log"
+Global $iLoopTimer      = 500
 
-Global $bMazeFarmingOn = False
-Global $bWriteLogOn = False
-Global $bRunning = False
-Global $bPausing = False
-Global $iPausingTimer = 0
-Global $iPausingMax = $iLoopTimer
-Global $bSingleRunning = False
+Global $bMazeFarmingOn  = False
+Global $bWriteLogOn     = False
+Global $bRunning        = False
+Global $bPausing        = False
+Global $iPausingTimer   = 0
+Global $iPausingMax     = $iLoopTimer
+Global $bSingleRunning  = False
 
 Global $cv = _OpenCV_get()
 If Not IsObj($cv) Then
-    MsgBox(0, "Error", "Failed to get OpenCV COM object.")
+    MsgBox(16, "Error", "Failed to get OpenCV COM object.")
     Exit
 EndIf
 
 ; The font and size.
-Local $sGUIFontName = "Segoe UI"
-Local $iGUIFontSize = 10
-Local $iGUIWidth = Int(255 * $iWinScale)
-Local $iGUIHeight = Int(255 * $iWinScale)
+Local $sFont = "Segoe UI"
+Local $iFontSize = 10
+Local $iGUIWidth = Int(255 * $iWinScale), $iGUIHeight = Int(255 * $iWinScale)
+
 GUICreate("MuvLuv Auto", $iGUIWidth, $iGUIHeight)
+GUISetFont($iFontSize, $FW_NORMAL, 0, $sFont)
 
-Local $iBtnSizeW = Int(100 * $iWinScale)
-Local $iBtnSizeH = Int(40 * $iWinScale)
-Local $iBtnPosX = Int(($iGUIWidth - $iBtnSizeW) / 2)
-Local $iElementYStart = Int(10 * $iWinScale)
-Local $iElementYGap = Int(5 * $iWinScale)
-Local $btnStart = GUICtrlCreateButton("Start", $iBtnPosX, $iElementYStart, $iBtnSizeW, $iBtnSizeH)
-GUICtrlSetFont($btnStart, $iGUIFontSize, $FW_NORMAL, 0, $sGUIFontName)
+Local $iBtnW = Int(100 * $iWinScale), $iBtnH = Int(40 * $iWinScale)
+Local $btnStart = GUICtrlCreateButton("Start", Int(($iGUIWidth - $iBtnW) / 2), Int(10 * $iWinScale), $iBtnW, $iBtnH)
 
-Local $iLblStatusPadTop = 3
-Local $iLblStatusSizeW = Int(120 * $iWinScale)
-Local $iLblStatusSizeH = Int(25 * $iWinScale) - $iLblStatusPadTop
-Local $iLblStatusPosX = Int(($iGUIWidth - $iLblStatusSizeW) / 2)
-Local $iLblStatusPosY = $iElementYStart + $iBtnSizeH + $iElementYGap * 2
-Local $lblStatusPad = GUICtrlCreateLabel("", $iLblStatusPosX, $iLblStatusPosY, $iLblStatusSizeW, $iLblStatusPadTop)
+Local $iPadTop = 3
+Local $iStatusW = Int(120 * $iWinScale), $iStatusH = Int(25 * $iWinScale) - $iPadTop
+Local $iStatusX = Int(($iGUIWidth - $iStatusW) / 2)
+Local $iStatusY = Int(10 * $iWinScale) + $iBtnH + Int(10 * $iWinScale) ; 合并 Gap 运算
+
+Local $lblStatusPad = GUICtrlCreateLabel("", $iStatusX, $iStatusY, $iStatusW, $iPadTop)
 GUICtrlSetBkColor($lblStatusPad, 0x000000)
 ; Initial string length needs attention.
-Local $lblStatus = GUICtrlCreateLabel("  Status: Idle    ", $iLblStatusPosX, $iLblStatusPosY + $iLblStatusPadTop, $iLblStatusSizeW, $iLblStatusSizeH)
+Global $lblStatus = GUICtrlCreateLabel("  Status: Idle    ", $iStatusX, $iStatusY + $iPadTop, $iStatusW, $iStatusH)
 GUICtrlSetBkColor($lblStatus, 0x000000)
 GUICtrlSetColor($lblStatus, 0xFFFFFF)
-GUICtrlSetFont($lblStatus, $iGUIFontSize, $FW_NORMAL, 0, $sGUIFontName)
 
-Local $iLblTipsSizeW = Int(235 * $iWinScale)
-Local $iLblTipsSizeH = Int(20 * $iWinScale)
-Local $iLblTipsPosX = Int(($iGUIWidth - $iLblTipsSizeW) / 2)
-Local $iLblTipsStartY = $iLblStatusPosY + $iLblStatusSizeH + $iElementYGap * 2
-Local $lblTip1 = GUICtrlCreateLabel("Tip1: Press Esc to stop looping.", $iLblTipsPosX, $iLblTipsStartY, $iLblTipsSizeW, $iLblTipsSizeH)
-GUICtrlSetFont($lblTip1, $iGUIFontSize, $FW_NORMAL, 0, $sGUIFontName)
-Local $lblTip2 = GUICtrlCreateLabel("Tip2: Keep an eye on the game.", $iLblTipsPosX, $iLblTipsStartY + $iLblTipsSizeH + $iElementYGap, $iLblTipsSizeW, $iLblTipsSizeH)
-GUICtrlSetFont($lblTip2, $iGUIFontSize, $FW_NORMAL, 0, $sGUIFontName)
-Local $lblTip3 = GUICtrlCreateLabel("Tip3: 1280x720 by SmartSystemMenu.", $iLblTipsPosX, $iLblTipsStartY + 2 * ($iLblTipsSizeH + $iElementYGap), $iLblTipsSizeW, $iLblTipsSizeH)
-GUICtrlSetFont($lblTip3, $iGUIFontSize, $FW_NORMAL, 0, $sGUIFontName)
+Local $iTipsW = Int(235 * $iWinScale), $iTipsH = Int(20 * $iWinScale)
+Local $iTipsX = Int(($iGUIWidth - $iTipsW) / 2)
+Local $iTipsY = $iStatusY + $iStatusH + Int(10 * $iWinScale)
+Local $iTipsGap = $iTipsH + Int(5 * $iWinScale)
 
-Local $iChkDebugSizeW = Int(100 * $iWinScale)
-Local $iChkDebugSizeH = Int(20 * $iWinScale)
-Local $iChkDebugPosX = Int(($iGUIWidth - $iChkDebugSizeW) / 2)
-Local $iChkDebugPosY = $iGUIHeight - Int(25 * $iWinScale)
-Local $chkDebug = GUICtrlCreateCheckbox("Enable log", $iChkDebugPosX, $iChkDebugPosY, $iChkDebugSizeW, $iChkDebugSizeH)
-GUICtrlSetFont($chkDebug, $iGUIFontSize, $FW_NORMAL, 0, $sGUIFontName)
+Local $aTipsText[3] = [ _
+    "Tip1: Press Esc to stop looping.", _
+    "Tip2: Keep an eye on the game.", _
+    "Tip3: 1280x720 by SmartSystemMenu." _
+]
+For $i = 0 To 2
+    GUICtrlCreateLabel($aTipsText[$i], $iTipsX, $iTipsY + ($i * $iTipsGap), $iTipsW, $iTipsH)
+Next
 
-Local $iChkMazeFarmingSizeW = Int(150 * $iWinScale)
-Local $iChkMazeFarmingSizeH = Int(20 * $iWinScale)
-Local $iChkMazeFarmingPosX = Int(($iGUIWidth - $iChkMazeFarmingSizeW) / 2)
-Local $iChkMazeFarmingPosY = $iChkDebugPosY - Int(25 * $iWinScale)
-Local $chkMazeFarming = GUICtrlCreateCheckbox("Enable Maze Farming", $iChkMazeFarmingPosX, $iChkMazeFarmingPosY, $iChkMazeFarmingSizeW, $iChkMazeFarmingSizeH)
-GUICtrlSetFont($chkMazeFarming, $iGUIFontSize, $FW_NORMAL, 0, $sGUIFontName)
+Local $iChkDebugW = Int(100 * $iWinScale), $iChkDebugH = Int(20 * $iWinScale)
+Local $iChkDebugY = $iGUIHeight - Int(25 * $iWinScale)
+Local $chkDebug = GUICtrlCreateCheckbox("Enable log", Int(($iGUIWidth - $iChkDebugW) / 2), $iChkDebugY, $iChkDebugW, $iChkDebugH)
+
+Local $iChkMazeW = Int(150 * $iWinScale), $iChkMazeH = Int(20 * $iWinScale)
+Local $iChkMazeY = $iChkDebugY - Int(25 * $iWinScale)
+Local $chkMazeFarming = GUICtrlCreateCheckbox("Enable Maze Farming", Int(($iGUIWidth - $iChkMazeW) / 2), $iChkMazeY, $iChkMazeW, $iChkMazeH)
 
 ; GUI Start
 GUISetState(@SW_SHOW)
@@ -107,19 +99,13 @@ While True
             Else
                 ActionStart()
             EndIf
+
         ; The check boxes
         Case $chkDebug
-            If BitAND(GUICtrlRead($chkDebug), $GUI_CHECKED) = $GUI_CHECKED Then
-                $bWriteLogOn = True
-            Else
-                $bWriteLogOn = False
-            EndIf
+            $bWriteLogOn = (GUICtrlRead($chkDebug) = $GUI_CHECKED)
+
         Case $chkMazeFarming
-            If BitAND(GUICtrlRead($chkDebug), $GUI_CHECKED) = $GUI_CHECKED Then
-                $bMazeFarmingOn = True
-            Else
-                $bMazeFarmingOn = False
-            EndIf
+            $bMazeFarmingOn = (GUICtrlRead($chkMazeFarming) = $GUI_CHECKED)
     EndSwitch
 WEnd
 
@@ -127,7 +113,7 @@ WEnd
 Func ResetPausingState()
     $bPausing = False
     $iPausingTimer = 0
-    $iPausingMax = $iLoopTimer
+    $iPausingMax = 0
 EndFunc
 
 Func ActionStart()
@@ -148,22 +134,18 @@ Func ActionStop()
 EndFunc
 
 Func ActionContinue()
-    If Not $bRunning Then
-        Return
-    EndIf
+    If Not $bRunning Then Return
     GUICtrlSetData($lblStatus, "  Status: Running ")
     GUICtrlSetColor($lblStatus, 0x00FF00)
     ResetPausingState()
-    AdlibRegister("AutoClick", $iLoopTimer)
 EndFunc
 
 Func ActionPause($iMilliSeconds)
     GUICtrlSetData($lblStatus, "  Status: Waiting ")
     GUICtrlSetColor($lblStatus, 0xFFD966)
+    $iPausingTimer = 0
+    $iPausingMax = $iMilliSeconds
     $bPausing = True
-    if $iMilliSeconds > 0 Then
-        $iPausingMax = $iMilliSeconds
-    EndIf
 EndFunc
 
 ; Image Search Functions.
@@ -230,16 +212,13 @@ EndFunc
 
 ; When no shifts, default to click the center of the image. The shifts are relative to the center.
 Func ClickRelateWindow($arrArea, $arrRect, $iShiftX = 0, $iShiftY = 0, $bBgClick = False)
+    Local $iCenterX = $arrRect[0] + Int($arrRect[2] / 2) + $iShiftX
+    Local $iCenterY = $arrRect[1] + Int($arrRect[3] / 2) + $iShiftY
     If $bBgClick Then
         ; Only when this message is accepted, but mostly can't because it's cheat apparently.
-        Local $arrClientPos = WinGetClientSize($sGameWinTitle)
-        Local $x = $arrArea[0] - $arrClientPos[0] + $arrRect[0] + Int($arrRect[2] / 2)
-        Local $y = $arrArea[1] - $arrClientPos[1] + $arrRect[1] + Int($arrRect[3] / 2)
-        ControlClick($sGameWinTitle, "", "", "left", 1, $x + $iShiftX, $y + $iShiftY)
+        ControlClick($sGameWinTitle, "", "", "left", 1, $iCenterX, $iCenterY)
     Else
-        Local $x = $arrArea[0] + $arrRect[0] + Int($arrRect[2] / 2)
-        Local $y = $arrArea[1] + $arrRect[1] + Int($arrRect[3] / 2)
-        MouseClick("left", $x + $iShiftX, $y + $iShiftY, 1, 0)
+        MouseClick("left", $arrArea[0] + $iCenterX, $arrArea[1] + $iCenterY, 1, 0)
     EndIf
 EndFunc
 
@@ -251,164 +230,181 @@ Func ClickImage($sImageFile, $fThreshold = 0.85, $iShiftX = 0, $iShiftY = 0, $bC
     Static $iCD = 0
 
     Local $arrRect = ImageSearch($sImageFile, $fThreshold, $arrSubArea)
-    Local $arrArea = WinGetPos($sGameWinTitle)
-    If $arrSubArea <> Default Then
-        $arrArea[0] += $arrSubArea[0]
-        $arrArea[1] += $arrSubArea[1]
-        $arrArea[2] = $arrSubArea[2]
-        $arrArea[3] = $arrSubArea[3]
-    EndIf
-
-    If IsArray($arrRect) Then
-        If $bCDOn And $sCDImageFile = $sImageFile Then
-            $iCD += 1
-            If $iCD >= $iCDMax Then
-                $iCD = 0
-                ClickRelateWindow($arrArea, $arrRect, $iShiftX, $iShiftY)
-                Return SetError(0, 0, True)
-            EndIf
-        Else
-            If $iCD <> 0 Then $iCD = 0
-            ClickRelateWindow($arrArea, $arrRect, $iShiftX, $iShiftY)
-            $sCDImageFile = $sImageFile
-            Return SetError(0, 0, True)
-        EndIf
-    Else
+    If Not IsArray($arrRect) Then
         Return SetError(1, 0, False)
     EndIf
+
+    If $bCDOn And $sCDImageFile = $sImageFile Then
+        $iCD += 1
+        If $iCD < $iCDMax Then
+            Return SetError(0, 0, True)
+        Endif
+        $iCD = 0
+    Else
+        $iCD = 0
+        $sCDImageFile = $sImageFile
+    EndIf
+
+    Local $arrArea = WinGetPos($sGameWinTitle)
+    If $arrSubArea <> Default Then
+        $arrRect[0] += $arrSubArea[0]
+        $arrRect[1] += $arrSubArea[1]
+    EndIf
+
+    ClickRelateWindow($arrArea, $arrRect, $iShiftX, $iShiftY)
+    Return SetError(0, 0, True)
 EndFunc
 
 ; Maze Shop Functions
 Func MazeShopBuying()
-    Local $fDefaultThreshold = 0.80
-    Local $fHigherThreshold = 0.90
-    Local $bDefaultCDOn = False
-    Local $iDefaultCDFactor = 2
-
-    Local $areaCurrency = [1060, 70, 160, 45]
-    Local $areaBuy1 = [490, 215, 200, 55]
-    Local $areaBuy2 = [975, 215, 200, 55]
-    Local $areaBuy3 = [490, 340, 200, 55]
-    Local $areaBuy4 = [975, 340, 200, 55]
-    Local $areaBuy5 = [490, 465, 200, 55]
-    ; Local $areaBuy6 = [975, 465, 200, 55]
-
-    Local $iDelayAnimate = 1500
-    Local $iDelayReaction = 250
+    Local $fDefaultThreshold = 0.80, $fHigherThreshold = 0.90
+    Local $bDefaultCDOn = False, $iDefaultCDFactor = 2
+    Local $iDelayAnimate = 1500, $iDelayReaction = 150
 
     Sleep($iDelayReaction)
+    If Not $bRunning Then Return True
 
-    If Not $bRunning Then
-        Return True
-    EndIf
-
-    While ClickImage($sGameResDir & "MazeShop\BuyA.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $areaBuy1) Or _
-          ClickImage($sGameResDir & "MazeShop\BuyA.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $areaBuy2) Or _
-          ClickImage($sGameResDir & "MazeShop\BuyA.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $areaBuy3) Or _
-          ClickImage($sGameResDir & "MazeShop\BuyA.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $areaBuy4) Or _
-          ClickImage($sGameResDir & "MazeShop\BuyA.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $areaBuy5)
+    While _ScanAndClickBuy("BuyUpgrade.png", $fDefaultThreshold, $bDefaultCDOn, $iDefaultCDFactor)
         Sleep($iDelayAnimate)
+        If Not $bRunning Then Return True
     WEnd
 
-    If Not $bRunning Then
-        Return True
-    EndIf
+    _MazeShopScroll("down")
+    Sleep($iDelayReaction)
 
-    If ClickImage($sGameResDir & "MazeShop\BuyB.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $areaBuy1) Or _
-       ClickImage($sGameResDir & "MazeShop\BuyB.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $areaBuy2) Or _
-       ClickImage($sGameResDir & "MazeShop\BuyB.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $areaBuy3) Or _
-       ClickImage($sGameResDir & "MazeShop\BuyB.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $areaBuy4) Or _
-       ClickImage($sGameResDir & "MazeShop\BuyB.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $areaBuy5) Then
+    While _ScanAndClickBuy("BuyUpgrade.png", $fDefaultThreshold, $bDefaultCDOn, $iDefaultCDFactor)
+        Sleep($iDelayAnimate)
+        If Not $bRunning Then Return True
+    WEnd
+
+    _MazeShopScroll("up")
+    Sleep($iDelayReaction)
+
+    Local $bBoughtB = False
+    If _ScanAndClickBuy("BuyInvest.png", $fDefaultThreshold, $bDefaultCDOn, $iDefaultCDFactor) Then
+        $bBoughtB = True
         Sleep($iDelayReaction)
     EndIf
 
-    If Not $bRunning Then
-        Return True
+    _MazeShopScroll("down")
+    Sleep($iDelayReaction)
+
+    If _ScanAndClickBuy("BuyInvest.png", $fDefaultThreshold, $bDefaultCDOn, $iDefaultCDFactor) Then
+        $bBoughtB = True
+        Sleep($iDelayReaction)
     EndIf
 
+    _MazeShopScroll("up")
+    Sleep($iDelayReaction)
+
+    If Not $bRunning Then Return True
+
+    Local $areaCurrency = [1060, 70, 160, 45]
     If ClickImage($sGameResDir & "Maze_Shop.png", $fHigherThreshold, -50, 570, $bDefaultCDOn, $iDefaultCDFactor, $areaCurrency) Then
         Return True
     EndIf
+    Return $bBoughtB
+EndFunc
+
+Func _ScanAndClickBuy($sImageName, $fThreshold, $bCDOn, $iCDFactor)
+    Local $arrMegaShopViewport = [450, 145, 750, 450]
+    Local $sFullImagePath = $sGameResDir & "MazeShop\" & $sImageName
+
+    If ClickImage($sFullImagePath, $fThreshold, 0, 0, $bCDOn, $iCDFactor, $arrMegaShopViewport) Then
+        Return True
+    EndIf
+
     Return False
 EndFunc
 
+Func _MazeShopScroll($sDirection = "down")
+    If Not $bRunning Then Return
+
+    Local $arrArea = WinGetPos($sGameWinTitle)
+    If @error Then Return
+
+    Local $iTargetX = $arrArea[0] + Int($arrArea[2] * 0.577)
+    Local $iTargetY = $arrArea[1] + Int($arrArea[3] * 0.477)
+
+    MouseMove($iTargetX, $iTargetY, 0)
+
+    If $sDirection = "down" Then
+        MouseWheel("down", 5)
+    Else
+        MouseWheel("up", 5)
+    EndIf
+EndFunc
+
 Func MazeShopBuyingTypes()
-    Local $fDefaultThreshold = 0.85
-    Local $bDefaultCDOn = False
-    Local $iDefaultCDFactor = 2
+    Local $fDefaultThreshold = 0.85, $bCD = False, $iCDFactor = 2
+    Local $aTypes[3][5] = [ _
+        ["Type_EN.png",       340, 135, 135, 35], _
+        ["Type_Agile.png",    485, 135, 135, 35], _
+        ["Type_Physical.png", 195, 135, 135, 35]  _
+    ]
 
-    Local $areaType1 = [195, 135, 135, 35]
-    Local $areaType2 = [340, 135, 135, 35]
-    Local $areaType3 = [485, 135, 135, 35]
+    If MazeShopBuying() Then Return True
 
-    If MazeShopBuying() Then
-        Return True
-    EndIf
-    ClickImage($sGameResDir & "MazeShop\Type_EN.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $areaType2)
-    If MazeShopBuying() Then
-        Return True
-    EndIf
-    ClickImage($sGameResDir & "MazeShop\Type_Agile.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $areaType3)
-    If MazeShopBuying() Then
-        Return True
-    EndIf
-    ClickImage($sGameResDir & "MazeShop\Type_Physical.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $areaType1)
+    For $i = 0 To 2
+        Local $arrSubArea = [$aTypes[$i][1], $aTypes[$i][2], $aTypes[$i][3], $aTypes[$i][4]]
+        Local $sFullImagePath = $sGameResDir & "MazeShop\" & $aTypes[$i][0]
+        ClickImage($sFullImagePath, $fDefaultThreshold, 0, 0, $bCD, $iCDFactor, $arrSubArea)
+        If MazeShopBuying() Then Return True
+    Next
+
     Return False
 EndFunc
 
 Func MazeShopFarming()
-    Local $fDefaultThreshold = 0.85
-    Local $fLowerThreshold = 0.80
-    Local $bDefaultCDOn = False
-    Local $iDefaultCDFactor = 2
+    Local $fDefault = 0.85, $fLow = 0.80, $bCD = False, $iCDFactor = 2, $iDelayReaction = 250
 
-    Local $areaBatchBtn = [1065, 135, 150, 45]
-    ClickImage($sGameResDir & "MazeShop\Daily_Batch.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $areaBatchBtn)
+    Local $arrDailyBatchArea = [1065, 135, 150, 45]
+    ClickImage($sGameResDir & "MazeShop\Daily_Batch.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrDailyBatchArea)
+    Sleep($iDelayReaction)
 
-    Local $areaTypeEquip = [10, 295, 135, 75]
-    ClickImage($sGameResDir & "MazeShop\Cate_TypeEquip.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $areaTypeEquip)
-    If MazeShopBuyingTypes() Then
-        Return
-    EndIf
+    Local $aCates[3][5] = [ _
+        ["Cate_TypeEquip.png", 10, 295, 135, 75], _
+        ["Cate_Excavate.png",  10, 375, 135, 75], _
+        ["Cate_Artifact.png",  10, 455, 135, 75]  _
+    ]
 
-    Local $areaExcavate = [10, 375, 135, 75]
-    ClickImage($sGameResDir & "MazeShop\Cate_Excavate.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $areaExcavate)
-    If MazeShopBuying() Then
-        Return
-    EndIf
+    For $i = 0 To 2
+        Local $arrSubArea = [$aCates[$i][1], $aCates[$i][2], $aCates[$i][3], $aCates[$i][4]]
+        Local $sFullImagePath = $sGameResDir & "MazeShop\" & $aCates[$i][0]
+        ClickImage($sFullImagePath, $fDefault, 0, 0, $bCD, $iCDFactor, $arrSubArea)
+        Local $bStatus = ($i = 1) ? MazeShopBuying() : MazeShopBuyingTypes()
+        If $bStatus Then Return
+    Next
 
-    Local $areaArtifact = [10, 455, 135, 75]
-    ClickImage($sGameResDir & "MazeShop\Cate_Artifact.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $areaArtifact)
-    If MazeShopBuyingTypes() Then
-        Return
-    EndIf
+    _MazeShopAbort($fLow, $bCD, $iCDFactor)
+EndFunc
 
-    Local $areaAbortA = [1020, 635, 195, 45]
-    ClickImage($sGameResDir & "MazeShop\AbortA.png", $fLowerThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $areaAbortA)
-
-    Local $areaAbortB = [660, 525, 160, 45]
-    While $bRunning And Not ClickImage($sGameResDir & "MazeShop\AbortB.png", $fLowerThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $areaAbortB)
+Func _MazeShopAbort($fThreshold, $bCD, $iCDFactor)
+    Local $areaAbortBtn = [1020, 635, 195, 45]
+    ClickImage($sGameResDir & "MazeShop\AbortBtn.png", $fThreshold, 0, 0, $bCD, $iCDFactor, $areaAbortBtn)
+    Local $areaAbortOK = [660, 525, 160, 45]
+    While $bRunning And Not ClickImage($sGameResDir & "MazeShop\AbortOK.png", $fThreshold, 0, 0, $bCD, $iCDFactor, $areaAbortOK)
         Sleep(500)
     WEnd
 EndFunc
 
 Func MazeNetworkErrored()
-    Local $fDefaultThreshold = 0.85
-    Local $bDefaultCDOn = False
-    Local $iDefaultCDFactor = 2
+    Local $fDefault = 0.85, $bCD = False, $iCDFactor = 2, $iSleep = 2000
+    Sleep($iSleep)
 
-    Local $iSleepNetwork = 2000
-    Local $iSleepSwitch = 1000
-    Sleep($iSleepNetwork)
+    Local $sHomeQuestPath = $sGameResDir & "Home_Quest.png"
     Local $areaHomeQuest = [705, 655, 105, 40]
-    While $bRunning And Not ClickImage($sGameResDir & "Home_Quest.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $areaHomeQuest)
-        Sleep($iSleepNetwork)
+    While $bRunning And Not ClickImage($sHomeQuestPath, $fDefault, 0, 0, $bCD, $iCDFactor, $areaHomeQuest)
+        Sleep($iSleep)
     WEnd
-    Sleep($iSleepSwitch)
-    Local $areaHomeQuestMaze = [985, 315, 180, 50]
-    While $bRunning And Not ClickImage($sGameResDir & "HomeQuest_Maze.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $areaHomeQuestMaze)
-        Sleep($iSleepSwitch)
-    Wend
+
+    Sleep(1000)
+
+    Local $sHomeMazePath = $sGameResDir & "HomeQuest_Maze.png"
+    Local $areaHomeMaze = [985, 315, 180, 50]
+    While $bRunning And Not ClickImage($sHomeMazePath, $fDefault, 0, 0, $bCD, $iCDFactor, $areaHomeMaze)
+        Sleep(1000)
+    WEnd
 EndFunc
 
 ; Log Function
@@ -416,144 +412,138 @@ Func WriteLog($msg)
     Local $hFile = FileOpen($sScriptLog, $FO_APPEND + $FO_CREATEPATH)
     If $hFile = -1 Then Return SetError(1, 0, 0)
 
-    FileWriteLine($hFile, _
-        @YEAR & "-" & @MON & "-" & @MDAY & " " & _
-        @HOUR & ":" & @MIN & ":" & @SEC & " - " & $msg)
-
+    FileWriteLine($hFile, StringFormat("%04d-%02d-%02d %02d:%02d:%02d - %s", @YEAR, @MON, @MDAY, @HOUR, @MIN, @SEC, $msg))
     FileClose($hFile)
 EndFunc
 
 ; Looped Function
 Func AutoClick()
-    If Not $bRunning Or $bSingleRunning Then
-        Return
-    EndIf
+    If Not $bRunning Or $bSingleRunning Then Return
 
     If $bPausing Then
         $iPausingTimer += $iLoopTimer
-        If $iPausingTimer > $iPausingMax Then
+        If $iPausingTimer >= $iPausingMax Then
             ActionContinue()
-        Else
-            Return
         EndIf
+        Return
     EndIf
 
-    If WinExists($sGameWinTitle) Then
-        If $bWriteLogOn Then
-            Local $hTimer = TimerInit()
-        EndIf
+    If Not WinExists($sGameWinTitle) Then
+        MsgBox(16, "Error", "Game window not found.")
+        ActionStop()
+        Return
+    EndIf
 
-        WinActivate($sGameWinTitle)
+    Local $hTimer = $bWriteLogOn ? TimerInit() : 0
+    WinActivate($sGameWinTitle)
 
-        Local $fLowerThreshold = 0.80
-        Local $fDefaultThreshold = 0.85
-        Local $fHigherThreshold = 0.90
-        Local $bDefaultCDOn = False
-        Local $iDefaultCDFactor = 2
+    Local $fLow = 0.80, $fDefault = 0.85, $fHigh = 0.90
+    Local $bCD = False, $iCDFactor = 2
 
-        Local $arrSubAreaLoading = [585, 335, 95, 75]
-        If IsArray(ImageSearch($sGameResDir & "Game_Loading.png", $fDefaultThreshold, $arrSubAreaLoading)) Then
-            ActionPause(1500)
-            Return
-        EndIf
+    Local $arrLoadingArea = [585, 335, 95, 75]
+    If IsArray(ImageSearch($sGameResDir & "Game_Loading.png", $fDefault, $arrLoadingArea)) Then
+        ActionPause(1500)
+        Return
+    EndIf
 
-        Local $arrSubAreaCorRB = [781, 493, 483, 219]
-        If ClickImage($sGameResDir & "Maze_Ready.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaCorRB) Or _
-           ClickImage($sGameResDir & "Maze_Route.png", $fLowerThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaCorRB) Or _
-           ClickImage($sGameResDir & "Quest_Enter.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaCorRB) Then
-            ActionPause(2500)
-            Return
-        EndIf
-        ClickImage($sGameResDir & "Maze_Enter.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaCorRB)
-        ClickImage($sGameResDir & "Maze_DeHelper.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaCorRB)
-        ClickImage($sGameResDir & "Sim_Enter.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaCorRB)
-        ClickImage($sGameResDir & "Com_Battle.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaCorRB)
-        ClickImage($sGameResDir & "Com_Continue.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaCorRB)
-        ClickImage($sGameResDir & "Quest_Scene.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaCorRB)
+    Local $arrRB = [781, 493, 483, 219]
+    If ClickImage($sGameResDir & "Maze_Ready.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrRB) Or _
+       ClickImage($sGameResDir & "Maze_Route.png", $fLow - 0.05, 0, 0, $bCD, $iCDFactor, $arrRB) Or _
+       ClickImage($sGameResDir & "Quest_Enter.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrRB) Then
+        ActionPause(2500)
+        Return
+    EndIf
 
-        Local $arrSubAreaCorRU = [740, 36, 524, 93]
-        If ClickImage($sGameResDir & "Game_Menu.png", $fDefaultThreshold, -560, 370, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaCorRU) Then
-            If $bMazeFarmingOn Then
-                $bSingleRunning = True
-                MazeNetworkErrored()
-                $bSingleRunning = False
-            EndIf
-            Return
-        EndIf
-        ClickImage($sGameResDir & "Com_SkipBattle.png", $fLowerThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaCorRU)
-        ClickImage($sGameResDir & "Com_SkipLight.png", $fLowerThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaCorRU)
-        ClickImage($sGameResDir & "Maze_Shop.png", $fHigherThreshold, -50, 570, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaCorRU)
+    Local $aSingleClicks[6] = ["Maze_Enter.png", "Maze_DeHelper.png", "Sim_Enter.png", "Com_Battle.png", "Com_Continue.png", "Quest_Scene.png"]
+    For $img In $aSingleClicks
+        ClickImage($sGameResDir & $img, $fDefault, 0, 0, $bCD, $iCDFactor, $arrRB)
+    Next
 
-        Local $arrSubAreaCorLU = [84, 52, 120, 43]
-        ClickImage($sGameResDir & "Gacha_Title.png", $fDefaultThreshold, -90, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaCorLU)
-
-        Local $arrSubAreaCtrDw = [310, 385, 645, 205]
-        ClickImage($sGameResDir & "Game_ErrorClose.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaCtrDw)
-        ClickImage($sGameResDir & "Game_ErrorTitle.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaCtrDw)
-
-        Local $arrSubAreaSetC1 = [523, 187, 217, 49]
-        ClickImage($sGameResDir & "Com_FlashSale.png", $fDefaultThreshold, 555, -135, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaSetC1)
-
-        Local $arrSubAreaSetC2 = [499, 162, 272, 49]
-        If ClickImage($sGameResDir & "Com_FlashRelay.png", $fDefaultThreshold, 230, 110, False, $iDefaultCDFactor, $arrSubAreaSetC2) Then
-            ClickImage($sGameResDir & "Com_FlashRelay.png", $fDefaultThreshold, 555, -110, False, $iDefaultCDFactor, $arrSubAreaSetC2)
-        EndIF
-
-        Local $arrSubAreaSetM1 = [543, 131, 185, 68]
-        ClickImage($sGameResDir & "Maze_SelRelic.png", $fDefaultThreshold, 0, 150, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaSetM1)
-
-        Local $arrSubAreaSetM2 = [385, 238, 203, 45]
-        ClickImage($sGameResDir & "Maze_SelTypeA.png", $fLowerThreshold, 270, 145, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaSetM2)
-        ClickImage($sGameResDir & "Maze_SelTypeB.png", $fLowerThreshold, 270, 145, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaSetM2)
-
-        Local $arrSubAreaSetM3 = [1007, 254, 206, 44]
-        ClickImage($sGameResDir & "Maze_SelHelperA.png", $fHigherThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaSetM3)
-        ClickImage($sGameResDir & "Maze_SelHelperB.png", $fHigherThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaSetM3)
-
-        Local $arrSubAreaSetM4 = [67, 386, 229, 78]
-        ClickImage($sGameResDir & "Maze_Trans.png", $fDefaultThreshold, 960, 240, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaSetM4)
-
-        If IsArray(ImageSearch($sGameResDir & "Com_SkipLocked.png", $fDefaultThreshold, $arrSubAreaCorRU)) Then
-            ActionPause(4500)
-            Return
-        EndIf
-
-        If IsArray(ImageSearch($sGameResDir & "Com_TryAgain.png", $fDefaultThreshold, $arrSubAreaCorRB)) Or _
-           IsArray(ImageSearch($sGameResDir & "Com_Limited.png", $fDefaultThreshold, $arrSubAreaCorRB)) Or _
-           IsArray(ImageSearch($sGameResDir & "Quest_Clear.png", $fDefaultThreshold, $arrSubAreaCorRB)) Or _
-           IsArray(ImageSearch($sGameResDir & "ADV_Menu.png", $fDefaultThreshold, $arrSubAreaCorRU)) Then
-            ActionStop()
-        EndIf
-
-        Local $iReactionTimer = 500
-        Local $arrSubAreaSetM5 = [630, 135, 135, 35]
-        If ClickImage($sGameResDir & "MazeShop\Daily_Unit.png", $fDefaultThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $arrSubAreaSetM5) Then
+    Local $arrRU = [740, 36, 524, 93]
+    If ClickImage($sGameResDir & "Game_Menu.png", $fDefault, -560, 370, $bCD, $iCDFactor, $arrRU) Then
+        If $bMazeFarmingOn Then
             $bSingleRunning = True
-            Sleep($iReactionTimer)
-            If Not $bRunning Then Return
-            Local $arrSubAreaSetM6 = [315, 580, 70, 35]
-            If IsArray(ImageSearch($sGameResDir & "MazeShop\Daily_Clear.png", $fLowerThreshold, $arrSubAreaSetM6)) Then
-                If $bMazeFarmingOn Then
-                    MazeShopFarming()
-                Else
-                    Local $areaAbortA = [1020, 635, 195, 45]
-                    ClickImage($sGameResDir & "MazeShop\AbortA.png", $fLowerThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $areaAbortA)
-                    Local $areaAbortB = [660, 525, 160, 45]
-                    While $bRunning And Not ClickImage($sGameResDir & "MazeShop\AbortB.png", $fLowerThreshold, 0, 0, $bDefaultCDOn, $iDefaultCDFactor, $areaAbortB)
-                        Sleep($iReactionTimer)
-                    WEnd
-                EndIf
-            EndIf
+            MazeNetworkErrored()
             $bSingleRunning = False
         EndIf
+        Return
+    EndIf
+    ClickImage($sGameResDir & "Com_SkipBattle.png", $fLow, 0, 0, $bCD, $iCDFactor, $arrRU)
+    ClickImage($sGameResDir & "Com_SkipLight.png", $fLow, 0, 0, $bCD, $iCDFactor, $arrRU)
+    ClickImage($sGameResDir & "Maze_Shop.png", $fHigh, -50, 570, $bCD, $iCDFactor, $arrRU)
 
-        If $bWriteLogOn Then
-            Local $fElapsed = TimerDiff($hTimer)
-            WriteLog("AutoClick: " & $fElapsed & " ms")
-        EndIf
-    Else
-        MsgBox(0, "Error", "Game window not found.")
+    Local $arrGachaTitleArea = [84, 52, 120, 43]
+    ClickImage($sGameResDir & "Gacha_Title.png", $fDefault, -90, 0, $bCD, $iCDFactor, $arrGachaTitleArea)
+
+    Local $arrDw = [310, 385, 645, 205]
+    ClickImage($sGameResDir & "Game_ErrorClose.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrDw)
+    ClickImage($sGameResDir & "Game_ErrorTitle.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrDw)
+
+    Local $arrFlashSaleArea = [523, 187, 217, 49]
+    ClickImage($sGameResDir & "Com_FlashSale.png", $fDefault, 555, -135, $bCD, $iCDFactor, $arrFlashSaleArea)
+
+    Local $arrC2 = [499, 162, 272, 49]
+    If ClickImage($sGameResDir & "Com_FlashRelay.png", $fDefault, 230, 110, False, $iCDFactor, $arrC2) Then
+        ClickImage($sGameResDir & "Com_FlashRelay.png", $fDefault, 555, -110, False, $iCDFactor, $arrC2)
+    EndIf
+
+    Local $arrM1 = [543, 131, 185, 68]
+    ClickImage($sGameResDir & "Maze_SelRelic.png", $fDefault, 0, 150, $bCD, $iCDFactor, $arrM1)
+    ClickImage($sGameResDir & "Maze_SelRelic200.png", $fDefault, 0, 150, $bCD, $iCDFactor, $arrM1)
+
+    Local $arrM2 = [385, 238, 203, 45]
+    ClickImage($sGameResDir & "Maze_SelTypeA.png", $fLow, 270, 145, $bCD, $iCDFactor, $arrM2)
+    ClickImage($sGameResDir & "Maze_SelTypeB.png", $fLow, 270, 145, $bCD, $iCDFactor, $arrM2)
+    ClickImage($sGameResDir & "Maze_SelTypeC.png", $fLow, 270, 145, $bCD, $iCDFactor, $arrM2)
+
+    Local $arrM3 = [1007, 254, 206, 44]
+    ClickImage($sGameResDir & "Maze_SelHelperA.png", $fHigh, 0, 0, $bCD, $iCDFactor, $arrM3)
+    ClickImage($sGameResDir & "Maze_SelHelperB.png", $fHigh, 0, 0, $bCD, $iCDFactor, $arrM3)
+
+    Local $arrTransArea = [67, 386, 229, 78]
+    Local $arrEvOptsArea = [1128, 337, 100, 340]
+    Local $arrNotCraftArea = [864, 626, 149, 39]
+    Local $arrNotCraftOKArea = [643, 524, 190, 50]
+    ClickImage($sGameResDir & "Maze_Trans.png", $fDefault, 960, 240, $bCD, $iCDFactor, $arrTransArea)
+    ClickImage($sGameResDir & "Maze_EvOpts.png", $fDefault, -50, -25, $bCD, $iCDFactor, $arrEvOptsArea)
+    If ClickImage($sGameResDir & "Maze_CraftDone.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrNotCraftArea) Then
+        ActionPause(1000)
+        ClickImage($sGameResDir & "Maze_CraftDoneOK.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrNotCraftOKArea)
+    EndIf
+
+    If IsArray(ImageSearch($sGameResDir & "Com_SkipLocked.png", $fDefault, $arrRU)) Then
+        ActionPause(4500)
+        Return
+    EndIf
+
+    If IsArray(ImageSearch($sGameResDir & "Com_TryAgain.png", $fDefault, $arrRB)) Or _
+       IsArray(ImageSearch($sGameResDir & "Com_Limited.png", $fDefault, $arrRB)) Or _
+       IsArray(ImageSearch($sGameResDir & "Quest_Clear.png", $fDefault, $arrRB)) Or _
+       IsArray(ImageSearch($sGameResDir & "ADV_Menu.png", $fDefault, $arrRU)) Then
         ActionStop()
+        Return
+    EndIf
+
+    Local $iTimerReaction = 500
+    Local $arrDailyUnitArea = [630, 135, 135, 35]
+    If ClickImage($sGameResDir & "MazeShop\Daily_Unit.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrDailyUnitArea) Then
+        $bSingleRunning = True
+        Sleep($iTimerReaction)
+        If Not $bRunning Then Return
+
+        Local $arrDailyClearArea = [315, 580, 70, 35]
+        If IsArray(ImageSearch($sGameResDir & "MazeShop\Daily_Clear.png", $fLow, $arrDailyClearArea)) Then
+            If $bMazeFarmingOn Then
+                MazeShopFarming()
+            Else
+                _MazeShopAbort($fLow, $bCD, $iCDFactor)
+            EndIf
+        EndIf
+        $bSingleRunning = False
+    EndIf
+
+    If $bWriteLogOn Then
+        WriteLog("AutoClick: " & TimerDiff($hTimer) & " ms")
     EndIf
 EndFunc
 
