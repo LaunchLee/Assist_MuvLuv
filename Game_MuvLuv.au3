@@ -502,7 +502,7 @@ Func AutoClick()
     ClickImage($sGameResDir & "Maze_SelHelperB.png", $fHigh, 0, 0, $bCD, $iCDFactor, $arrM3)
 
     Local $arrTransArea = [67, 386, 229, 78]
-    Local $arrEvOptsArea = [1128, 337, 100, 340]
+    Local $arrEvOptsArea = [1128, 307, 100, 370]
     Local $arrNotCraftArea = [864, 626, 149, 39]
     Local $arrNotCraftOKArea = [643, 524, 190, 50]
     ClickImage($sGameResDir & "Maze_Trans.png", $fDefault, 960, 240, $bCD, $iCDFactor, $arrTransArea)
