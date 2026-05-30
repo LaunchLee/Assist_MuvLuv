@@ -439,6 +439,7 @@ Func AutoClick()
 
     Local $fLow = 0.80, $fDefault = 0.85, $fHigh = 0.90
     Local $bCD = False, $iCDFactor = 2
+    Local $iPopupDelay = 500
 
     Local $arrLoadingArea = [585, 335, 95, 75]
     If IsArray(ImageSearch($sGameResDir & "Game_Loading.png", $fDefault, $arrLoadingArea)) Then
@@ -507,7 +508,7 @@ Func AutoClick()
     ClickImage($sGameResDir & "Maze_Trans.png", $fDefault, 960, 240, $bCD, $iCDFactor, $arrTransArea)
     ClickImage($sGameResDir & "Maze_EvOpts.png", $fDefault, -50, -25, $bCD, $iCDFactor, $arrEvOptsArea)
     If ClickImage($sGameResDir & "Maze_CraftDone.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrNotCraftArea) Then
-        ActionPause(1000)
+        Sleep($iPopupDelay)
         ClickImage($sGameResDir & "Maze_CraftDoneOK.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrNotCraftOKArea)
     EndIf
 
