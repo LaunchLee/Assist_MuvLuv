@@ -532,6 +532,10 @@ Func AutoClick()
         Return
     EndIf
 
+    Local $arrShopDoneCancelArea = [433, 526, 192, 47]
+    If $bMazeFarmingOn Then
+        ClickImage($sGameResDir & "MazeShop\AbortCancel.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrShopDoneCancelArea)
+    EndIf
     Local $iTimerReaction = 500
     Local $arrDailyUnitArea = [630, 135, 135, 35]
     If ClickImage($sGameResDir & "MazeShop\Daily_Unit.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrDailyUnitArea) Then
