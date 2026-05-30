@@ -484,8 +484,8 @@ Func AutoClick()
     ClickImage($sGameResDir & "Gacha_Title.png", $fDefault, -90, 0, $bCD, $iCDFactor, $arrGachaTitleArea)
 
     Local $arrDw = [310, 385, 645, 205]
-    ClickImage($sGameResDir & "Game_ErrorClose.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrDw)
-    ClickImage($sGameResDir & "Game_ErrorTitle.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrDw)
+    ClickImage($sGameResDir & "Game_ErrorClose.png", $fLow, 0, 0, $bCD, $iCDFactor, $arrDw)
+    ClickImage($sGameResDir & "Game_ErrorTitle.png", $fLow, 0, 0, $bCD, $iCDFactor, $arrDw)
 
     Local $arrFlashSaleArea = [523, 187, 217, 49]
     ClickImage($sGameResDir & "Com_FlashSale.png", $fDefault, 555, -135, $bCD, $iCDFactor, $arrFlashSaleArea)
