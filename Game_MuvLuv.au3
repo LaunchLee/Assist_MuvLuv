@@ -389,7 +389,8 @@ Func _MazeShopAbort($fThreshold, $bCD, $iCDFactor)
 EndFunc
 
 Func MazeNetworkErrored()
-    Local $fDefault = 0.85, $bCD = False, $iCDFactor = 2, $iSleep = 2000
+    Local $fDefault = 0.85, $bCD = False, $iCDFactor = 2
+    Local $iSleep = 2000
     Sleep($iSleep)
 
     Local $sHomeQuestPath = $sGameResDir & "Home_Quest.png"
@@ -398,13 +399,19 @@ Func MazeNetworkErrored()
         Sleep($iSleep)
     WEnd
 
-    Sleep(1000)
+    Sleep($iSleep)
 
     Local $sHomeMazePath = $sGameResDir & "HomeQuest_Maze.png"
     Local $areaHomeMaze = [985, 315, 180, 50]
     While $bRunning And Not ClickImage($sHomeMazePath, $fDefault, 0, 0, $bCD, $iCDFactor, $areaHomeMaze)
-        Sleep(1000)
+        Sleep($iSleep)
     WEnd
+
+    Sleep($iSleep)
+
+    Local $sHomeMazeEntryPath = $sGameResDir & "HomeQuest_MazeEntryA.png"
+    Local $areaHomeMazeEntryA = [310, 510, 270, 90]
+    ClickImage($sHomeMazeEntryPath, $fDefault, 0, 0, $bCD, $iCDFactor, $areaHomeMazeEntryA)
 EndFunc
 
 ; Log Function
