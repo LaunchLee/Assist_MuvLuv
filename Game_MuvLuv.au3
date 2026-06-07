@@ -519,6 +519,10 @@ Func AutoClick()
         ClickImage($sGameResDir & "Maze_CraftDoneOK.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrNotCraftOKArea)
     EndIf
 
+    ; Reuse ok button
+    Local $arrC1 = [482, 356, 300, 300]
+    ClickImage($sGameResDir & "Maze_CraftDoneOK.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrC1)
+
     If IsArray(ImageSearch($sGameResDir & "Com_SkipLocked.png", $fDefault, $arrRU)) Then
         ActionPause(4500)
         Return
