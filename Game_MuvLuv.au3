@@ -151,7 +151,7 @@ EndFunc
 ; Image Search Functions.
 ; #FUNCTION# ==========================================================================================================
 ; Name ..........: ImageSearch
-; Description ...: Find image in the game window or subarea relative to the game.
+; Description ...: Find image in the game window or subarea relative to the game window.
 ; Syntax ........: ImageSearch($sImageFile[, $fThreshold = 0.8[, $arrSubArea = Default[, $iBaseHeight = 712]]])
 ; Parameters ....: $sImageFile      - Image path.
 ;                  $fThreshold      - [optional] The threshold. Default is 0.8
@@ -162,7 +162,7 @@ EndFunc
 ;                                                running game window size is different, the template image will be
 ;                                                resized proportionally to  match the window size. Though it's better
 ;                                                to keep your game window size consistent.
-; Return values .: Array of area relative to the game window if find. Otherwise just silent.
+; Return values .: Array of area relative to the game window if find or subarea if provided. Otherwise just silent.
 ; Remarks .......:
 ;   Assuming using SmartSystemMenu to resize to 1280x720 that give the game window size 1264x712 reducing the border
 ;   shadow size I think.
@@ -186,6 +186,12 @@ Func ImageSearch($sImageFile, $fThreshold = 0.8, $arrSubArea = Default, $iBaseHe
 
     If $iActualHeight <> $iBaseHeight Then
         Local $fProportion = $iBaseHeight / $iActualHeight
+        If $arrSubArea <> Default Then
+            $arrArea[0] += int($arrSubArea[0] * ($fProportion - 1))
+            $arrArea[1] += int($arrSubArea[1] * ($fProportion - 1))
+        EndIf
+        $arrArea[2] = int($arrArea[2] * $fProportion)
+        $arrArea[3] = int($arrArea[3] * $fProportion)
         Local $iAdjWidth = int($imgTempl.width * $fProportion)
         Local $iAdjHeight = int($imgTempl.height * $fProportion)
         $imgTempl = $cv.resize($imgTempl, _OpenCV_Size($iAdjWidth, $iAdjHeight))
@@ -210,7 +216,8 @@ Func ImageSearch($sImageFile, $fThreshold = 0.8, $arrSubArea = Default, $iBaseHe
     EndIf
 EndFunc
 
-; When no shifts, default to click the center of the image. The shifts are relative to the center.
+; $arrArea is the window area. $arrRect is the subarea relative to the window area.
+; When no shifts, default to click the center of the image($subRect). The shifts are relative to the center.
 Func ClickRelateWindow($arrArea, $arrRect, $iShiftX = 0, $iShiftY = 0, $bBgClick = False)
     Local $iCenterX = $arrRect[0] + Int($arrRect[2] / 2) + $iShiftX
     Local $iCenterY = $arrRect[1] + Int($arrRect[3] / 2) + $iShiftY
@@ -225,7 +232,7 @@ EndFunc
 ; CD: If the image would still be presented for a while after being clicked,
 ; then if in the next loop the same image is the
 ; "next" detected, skip it for 1 as the CD unit.
-Func ClickImage($sImageFile, $fThreshold = 0.85, $iShiftX = 0, $iShiftY = 0, $bCDOn = False, $iCDMax = 2, $arrSubArea = Default)
+Func ClickImage($sImageFile, $fThreshold = 0.85, $iShiftX = 0, $iShiftY = 0, $bCDOn = False, $iCDMax = 2, $arrSubArea = Default, $iBaseHeight = 712)
     Static $sCDImageFile = ""
     Static $iCD = 0
 
@@ -246,9 +253,16 @@ Func ClickImage($sImageFile, $fThreshold = 0.85, $iShiftX = 0, $iShiftY = 0, $bC
     EndIf
 
     Local $arrArea = WinGetPos($sGameWinTitle)
+    Local $iActualHeight = $arrArea[3]
     If $arrSubArea <> Default Then
         $arrRect[0] += $arrSubArea[0]
         $arrRect[1] += $arrSubArea[1]
+    EndIf
+
+    If $iActualHeight <> $iBaseHeight And $arrSubArea <> Default Then
+        Local $fProportion = $iBaseHeight / $iActualHeight
+        $arrRect[0] += int($arrSubArea[0] * ($fProportion - 1))
+        $arrRect[1] += int($arrSubArea[1] * ($fProportion - 1))
     EndIf
 
     ClickRelateWindow($arrArea, $arrRect, $iShiftX, $iShiftY)
