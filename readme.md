@@ -4,7 +4,7 @@
 
 <div align="center">
 Auto farming sample in "メイズ探索". Just do the simplest decision for endless auto looping<br />
-<video alt="Demo" src="./Res/sample01.mp4" controls width="600"></video>
+<video alt="Demo" src="Res/sample01.mp4" width="600" controls></video>
 </div>
 
 Install [AutoIt](https://www.autoitscript.com/site/), download this project,
