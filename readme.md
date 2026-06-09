@@ -1,5 +1,20 @@
 # Assist MuvLuv
 
+## Demo
+
+<div align="center">
+Auto farming sample in "メイズ探索". Just do the simplest decision for endless auto looping<br />
+<video alt="Demo" src="./Res/sample01.mp4" controls width="600"></video>
+</div>
+
+Install [AutoIt](https://www.autoitscript.com/site/), download this project,
+unzip it and run Game_MuvLuv.au3.
+
+The game window is windowed and is resized to 1264x712
+(see [The Assist](#the-assist)). This demo show the auto farming sample in
+"メイズ探索" (Maze Exploration). Notice the "Enable Maze Farming" button is
+checked on the GUI of this script at the beginning of this demo video.
+
 ## The Game(s)
 
 ### マブラヴ ガールズガーデン (MuvLuv GirlsGarden)
@@ -48,7 +63,7 @@ However, the script(s) has/have been written anyway. Who cares.
 
 Mainly the assist aims to do the repeating operations in some scenarios.
 There aren't much detailed words to describe this assist. Make sure the game
-window is resized to 1280x720 by
+window is windowed and resized to 1280x720 by
 [SmartSystemMenu](https://github.com/AlexanderPro/SmartSystemMenu)
 making the game window size 1264x712.
 

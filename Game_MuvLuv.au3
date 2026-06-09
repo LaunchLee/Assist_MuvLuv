@@ -88,6 +88,7 @@ Local $chkMazeFarming = GUICtrlCreateCheckbox("Enable Maze Farming", Int(($iGUIW
 ; GUI Start
 GUISetState(@SW_SHOW)
 HotKeySet("{ESC}", "ActionStop")
+HotKeySet("{END}", "ActionStop")
 While True
     Switch GUIGetMsg()
         ; When click close button
@@ -148,6 +149,42 @@ Func ActionPause($iMilliSeconds)
     $bPausing = True
 EndFunc
 
+Func _WinAPI_GetPosWithoutShadow($hWnd)
+    If Not IsHWnd($hWnd) Then $hWnd = WinGetHandle($hWnd)
+    If Not $hWnd Then Return False
+
+    Local $aPos[4]
+    Local $bSuccess = False
+
+    Local $tRect = DllStructCreate("long Left;long Top;long Right;long Bottom;")
+    ; DWMWA_EXTENDED_FRAME_BOUNDS = 9
+    Local $aRet = DllCall("dwmapi.dll", "long", "DwmGetWindowAttribute", _
+            "hwnd", $hWnd, _
+            "dword", 9, _
+            "ptr", DllStructGetPtr($tRect), _
+            "dword", DllStructGetSize($tRect))
+
+    If Not @error And $aRet[0] = 0 Then
+        $aPos[0] = DllStructGetData($tRect, "Left")
+        $aPos[1] = DllStructGetData($tRect, "Top")
+        $aPos[2] = DllStructGetData($tRect, "Right") - $aPos[0]  ; Width
+        $aPos[3] = DllStructGetData($tRect, "Bottom") - $aPos[1] ; Height
+        $bSuccess = True
+    EndIf
+
+    If Not $bSuccess Then
+        Local $aNativePos = WinGetPos($hWnd)
+        If IsArray($aNativePos) Then
+            $aPos = $aNativePos
+            $bSuccess = True
+        EndIf
+    EndIf
+
+    If Not $bSuccess Then Return False
+
+    Return $aPos
+EndFunc
+
 ; Image Search Functions.
 ; #FUNCTION# ==========================================================================================================
 ; Name ..........: ImageSearch
@@ -170,7 +207,7 @@ EndFunc
 Func ImageSearch($sImageFile, $fThreshold = 0.8, $arrSubArea = Default, $iBaseHeight = 712)
     Local $imgTempl = _OpenCV_imread_and_check($sImageFile)
 
-    Local $arrArea = WinGetPos($sGameWinTitle)
+    Local $arrArea = _WinAPI_GetPosWithoutShadow($sGameWinTitle)
     Local $iActualHeight = $arrArea[3]
     If $arrSubArea <> Default Then
         $arrArea[0] += $arrSubArea[0]
@@ -185,7 +222,7 @@ Func ImageSearch($sImageFile, $fThreshold = 0.8, $arrSubArea = Default, $iBaseHe
     EndIf
 
     If $iActualHeight <> $iBaseHeight Then
-        Local $fProportion = $iBaseHeight / $iActualHeight
+        Local $fProportion = $iActualHeight / $iBaseHeight
         If $arrSubArea <> Default Then
             $arrArea[0] += int($arrSubArea[0] * ($fProportion - 1))
             $arrArea[1] += int($arrSubArea[1] * ($fProportion - 1))
@@ -198,9 +235,9 @@ Func ImageSearch($sImageFile, $fThreshold = 0.8, $arrSubArea = Default, $iBaseHe
     EndIf
 
     Local $iN = 1
-    ; Gray
-    Local $imgTemplOpt = $cv.cvtColor($imgTempl, 6)
-    Local $imgScreenOpt = $cv.cvtColor($imgScreen, 6)
+
+    Local $imgTemplOpt = $cv.cvtColor($imgTempl, $CV_COLOR_BGR2GRAY)
+    Local $imgScreenOpt = $cv.cvtColor($imgScreen, $CV_COLOR_BGR2GRAY)
     Local $iTotalCosts = $imgScreen.width * $imgScreen.height * $imgTempl.width * $imgTempl.height
     If $iTotalCosts > 147456000000 Then
         $iN = 2
@@ -236,7 +273,7 @@ Func ClickImage($sImageFile, $fThreshold = 0.85, $iShiftX = 0, $iShiftY = 0, $bC
     Static $sCDImageFile = ""
     Static $iCD = 0
 
-    Local $arrRect = ImageSearch($sImageFile, $fThreshold, $arrSubArea)
+    Local $arrRect = ImageSearch($sImageFile, $fThreshold, $arrSubArea, $iBaseHeight)
     If Not IsArray($arrRect) Then
         Return SetError(1, 0, False)
     EndIf
@@ -252,7 +289,7 @@ Func ClickImage($sImageFile, $fThreshold = 0.85, $iShiftX = 0, $iShiftY = 0, $bC
         $sCDImageFile = $sImageFile
     EndIf
 
-    Local $arrArea = WinGetPos($sGameWinTitle)
+    Local $arrArea = _WinAPI_GetPosWithoutShadow($sGameWinTitle)
     Local $iActualHeight = $arrArea[3]
     If $arrSubArea <> Default Then
         $arrRect[0] += $arrSubArea[0]
@@ -260,7 +297,7 @@ Func ClickImage($sImageFile, $fThreshold = 0.85, $iShiftX = 0, $iShiftY = 0, $bC
     EndIf
 
     If $iActualHeight <> $iBaseHeight And $arrSubArea <> Default Then
-        Local $fProportion = $iBaseHeight / $iActualHeight
+        Local $fProportion = $iActualHeight / $iBaseHeight
         $arrRect[0] += int($arrSubArea[0] * ($fProportion - 1))
         $arrRect[1] += int($arrSubArea[1] * ($fProportion - 1))
     EndIf
@@ -334,7 +371,7 @@ EndFunc
 Func _MazeShopScroll($sDirection = "down")
     If Not $bRunning Then Return
 
-    Local $arrArea = WinGetPos($sGameWinTitle)
+    Local $arrArea = _WinAPI_GetPosWithoutShadow($sGameWinTitle)
     If @error Then Return
 
     Local $iTargetX = $arrArea[0] + Int($arrArea[2] * 0.577)
