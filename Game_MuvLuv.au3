@@ -27,6 +27,8 @@ Global $sScriptLog      = @ScriptDir & "\Game_MuvLuv.log"
 Global $iLoopTimer      = 500
 
 Global $bMazeFarmingOn  = False
+Global $bMazeCraftSkip  = True
+
 Global $bWriteLogOn     = False
 Global $bRunning        = False
 Global $bPausing        = False
@@ -85,6 +87,11 @@ Local $iChkMazeW = Int(150 * $iWinScale), $iChkMazeH = Int(20 * $iWinScale)
 Local $iChkMazeY = $iChkDebugY - Int(25 * $iWinScale)
 Local $chkMazeFarming = GUICtrlCreateCheckbox("Enable Maze Farming", Int(($iGUIWidth - $iChkMazeW) / 2), $iChkMazeY, $iChkMazeW, $iChkMazeH)
 
+Local $iChkCraftW = Int(150 * $iWinScale), $iChkCraftH = Int(20 * $iWinScale)
+Local $iChkCraftY = $iChkMazeY - Int(25 * $iWinScale)
+Local $chkCraftSkip = GUICtrlCreateCheckbox("Skip Crafting in Maze", Int(($iGUIWidth - $iChkCraftW) / 2), $iChkCraftY, $iChkCraftW, $iChkCraftH)
+GUICtrlSetState($chkCraftSkip, $GUI_CHECKED)
+
 ; GUI Start
 GUISetState(@SW_SHOW)
 HotKeySet("{ESC}", "ActionStop")
@@ -107,6 +114,9 @@ While True
 
         Case $chkMazeFarming
             $bMazeFarmingOn = (GUICtrlRead($chkMazeFarming) = $GUI_CHECKED)
+
+        Case $chkCraftSkip
+            $bMazeCraftSkip = (GUICtrlRead($chkCraftSkip) = $GUI_CHECKED)
     EndSwitch
 WEnd
 
@@ -565,9 +575,12 @@ Func AutoClick()
     Local $arrNotCraftOKArea = [643, 524, 190, 50]
     ClickImage($sGameResDir & "Maze_Trans.png", $fDefault, 960, 240, $bCD, $iCDFactor, $arrTransArea)
     ClickImage($sGameResDir & "Maze_EvOpts.png", $fDefault, -50, -25, $bCD, $iCDFactor, $arrEvOptsArea)
-    If ClickImage($sGameResDir & "Maze_CraftDone.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrNotCraftArea) Then
-        Sleep($iPopupDelay)
-        ClickImage($sGameResDir & "Maze_CraftDoneOK.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrNotCraftOKArea)
+
+    If $bMazeCraftSkip Then
+        If ClickImage($sGameResDir & "Maze_CraftDone.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrNotCraftArea) Then
+            Sleep($iPopupDelay)
+            ClickImage($sGameResDir & "Maze_CraftDoneOK.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrNotCraftOKArea)
+        EndIf
     EndIf
 
     ; Reuse ok button
