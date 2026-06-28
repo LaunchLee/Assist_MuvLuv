@@ -700,11 +700,24 @@ Func AutoClick()
         Return
     EndIf
 
-    If IsArray(ImageSearch($sGameResDir & "Com_TryAgain.png", $fDefault, $arrRB)) Or _
-       IsArray(ImageSearch($sGameResDir & "Com_Limited.png", $fDefault, $arrRB)) Or _
-       IsArray(ImageSearch($sGameResDir & "Quest_Clear.png", $fDefault, $arrRB)) Or _
-       IsArray(ImageSearch($sGameResDir & "ADV_Menu.png", $fDefault, $arrRU)) Then
+    If IsArray(ImageSearch($sGameResDir & "Com_TryAgain.png", $fDefault, $arrRB)) Then
         ActionStop()
+        GUICtrlSetData($lblStatus, "  Battle: Failed  ")
+        Return
+    EndIf
+    If IsArray(ImageSearch($sGameResDir & "Com_Limited.png", $fDefault, $arrRB)) Then
+        ActionStop()
+        GUICtrlSetData($lblStatus, "Activity: Limited ")
+        Return
+    EndIf
+    If IsArray(ImageSearch($sGameResDir & "Quest_Clear.png", $fDefault, $arrRB)) Then
+        ActionStop()
+        GUICtrlSetData($lblStatus, "  Quest: Clear    ")
+        Return
+    EndIf
+    If IsArray(ImageSearch($sGameResDir & "ADV_Menu.png", $fDefault, $arrRU)) Then
+        ActionStop()
+        GUICtrlSetData($lblStatus, "  Status: InMenu  ")
         Return
     EndIf
 
