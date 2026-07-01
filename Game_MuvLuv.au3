@@ -623,6 +623,9 @@ Func AutoClick()
         Return
     EndIf
 
+    Local $arrCircleHard = [828, 513, 155, 55]
+    ClickImage($sGameResDir & "Circle_Hard.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrCircleHard)
+
     Local $arrRB = [781, 493, 483, 219]
     If ClickImage($sGameResDir & "Maze_Ready.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrRB) Or _
        ClickImage($sGameResDir & "Maze_Route.png", $fLow - 0.05, 0, 0, $bCD, $iCDFactor, $arrRB) Or _
@@ -705,9 +708,9 @@ Func AutoClick()
         GUICtrlSetData($lblStatus, "  Battle: Failed  ")
         Return
     EndIf
-    If IsArray(ImageSearch($sGameResDir & "Com_Limited.png", $fDefault, $arrRB)) Then
+    If IsArray(ImageSearch($sGameResDir & "Com_Limited.png", $fHigh + 0.05, $arrRB)) Then
         ActionStop()
-        GUICtrlSetData($lblStatus, "Activity: Limited ")
+        GUICtrlSetData($lblStatus, " Activity: Limited")
         Return
     EndIf
     If IsArray(ImageSearch($sGameResDir & "Quest_Clear.png", $fDefault, $arrRB)) Then
