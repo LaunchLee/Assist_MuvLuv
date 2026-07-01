@@ -27,7 +27,7 @@ Global $sGameResDir     = @ScriptDir & "\Games\MuvLuv\"
 Global $sScriptLog      = @ScriptDir & "\Game_MuvLuv.log"
 Global $iLoopTimer      = 500
 
-Global $bMazeFarmingOn  = False
+Global $bMazeFarmingOn  = True
 Global $bMazeCraftSkip  = True
 
 Global $bWriteLogOn     = False
@@ -115,6 +115,7 @@ Local $iChkMazeY = $iChkDebugY - Int(25 * $iWinScale)
 Local $iChkMazeX = Int(($iGUIWidth - $iChkMazeW) / 2)
 Local $chkMazeFarming = GUICtrlCreateCheckbox("", $iChkMazeX, $iChkMazeY, $iChkBoxW, $iChkMazeH)
 Local $chkMazeFarmingText = GUICtrlCreateLabel("Enable Maze Farming", $iChkMazeX + $iChkBoxW, $iChkMazeY + $iChkBoxP, $iChkMazeW - $iChkBoxW, $iChkMazeH)
+GUICtrlSetState($chkMazeFarming, $GUI_CHECKED)
 _RegisterThemeCtrl($chkMazeFarmingText)
 
 Local $iChkCraftW = Int(150 * $iWinScale), $iChkCraftH = Int(20 * $iWinScale)
