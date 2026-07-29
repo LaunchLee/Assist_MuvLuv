@@ -734,7 +734,10 @@ Func AutoClick()
     If ClickImage($sGameResDir & "MazeShop\Daily_Unit.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrDailyUnitArea) Then
         $bSingleRunning = True
         Sleep($iTimerReaction)
-        If Not $bRunning Then Return
+        If Not $bRunning Then
+            $bSingleRunning = False
+            Return
+        EndIf
 
         Local $arrDailyClearArea = [315, 580, 70, 35]
         If IsArray(ImageSearch($sGameResDir & "MazeShop\Daily_Clear.png", $fLow, $arrDailyClearArea)) Then
