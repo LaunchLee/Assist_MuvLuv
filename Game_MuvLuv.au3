@@ -611,6 +611,12 @@ Func AutoClick()
         Return
     EndIf
 
+    Local $aNativePos = WinGetPos($sGameWinTitle)
+    if $aNativePos[2] <> 1280 And $aNativePos[3] <> 720 Then
+        GUICtrlSetData($lblStatus, "  Status: Resized ")
+        WinMove($sGameWinTitle, "", Default, Default, 1280, 720)
+    EndIf
+
     Local $hTimer = $bWriteLogOn ? TimerInit() : 0
     WinActivate($sGameWinTitle)
 
