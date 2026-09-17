@@ -641,7 +641,7 @@ Func AutoClick()
         Return
     EndIf
 
-    Local $aSingleClicks[6] = ["Maze_Enter.png", "Maze_DeHelper.png", "Sim_Enter.png", "Com_Battle.png", "Com_Continue.png", "Quest_Scene.png"]
+    Local $aSingleClicks[7] = ["Maze_Enter.png", "Maze_NoHelper.png", "Maze_DeHelper.png", "Sim_Enter.png", "Com_Battle.png", "Com_Continue.png", "Quest_Scene.png"]
     For $img In $aSingleClicks
         ClickImage($sGameResDir & $img, $fDefault, 0, 0, $bCD, $iCDFactor, $arrRB)
     Next
