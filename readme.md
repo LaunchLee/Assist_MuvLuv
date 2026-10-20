@@ -3,6 +3,7 @@
 ## Demo
 
 <div align="center">
+
 Auto farming sample in "メイズ探索". Just do the simplest decision for endless auto looping<br />
 
 https://github.com/user-attachments/assets/eb046685-b0e8-4228-b911-d546223860dc
@@ -12,19 +13,18 @@ https://github.com/user-attachments/assets/eb046685-b0e8-4228-b911-d546223860dc
 Install [AutoIt](https://www.autoitscript.com/site/), download this project,
 unzip it and run Game_MuvLuv.au3.
 
-The game window is windowed and is resized to 1264x712
-(see [The Assist](#the-assist)). This demo show the auto farming sample in
+The game client will be automatically resized to 1280x720. This demo show the auto farming sample in
 "メイズ探索" (Maze Exploration). Notice the "Enable Maze Farming" button is
 checked on the GUI of this script at the beginning of this demo video.
 
-## The Game(s)
+## The Game
 
 ### マブラヴ ガールズガーデン (MuvLuv GirlsGarden)
 
-Assume the game(s) is/are played on the dmm games player.
+Assume the game is/are played on the dmm games player.
 
 When playing this game and farming the "メイズ探索", my phone heats and the
-battery drains, which is the reason why the script(s) was/were written as I was
+battery drains, which is the reason why the script was/were written as I was
 using [Klick'r](https://github.com/Nain57/Smart-AutoClicker)
 to automate gacha games on Android, but later I do not play them too much
 since I have sensed it's the media art appearance of them that makes
@@ -35,9 +35,9 @@ the same operations and decision-making forms inside. Maybe the repeating
 is the game itself in most cases such as life but if so where the reincarnation
 happens? Wired.
 
-## The Script(s)
+## The Script
 
-The script(s) can be directly ran by
+The script can be directly ran by
 [AutoIt](https://www.autoitscript.com/site/), an automation software on
 Windows. And there are some OpenCV-related files with
 thanks to the implementation of
@@ -55,19 +55,16 @@ getting my hands dirty for days, I got this solution. Because the farming has
 been finished, this repository will not be updated anymore.
 
 But there may be some more decent softwares that implement the behaviors in
-the script(s), and may have interface to capture image, edit image, set logic,
+the script, and may have interface to capture image, edit image, set logic,
 set operations, etc. Like
 [Klick'r](https://github.com/Nain57/Smart-AutoClicker) on Android.
 
-However, the script(s) has/have been written anyway. Who cares.
+However, the script has/have been written anyway. Who cares.
 
 ## The Assist
 
 Mainly the assist aims to do the repeating operations in some scenarios.
-There aren't much detailed words to describe this assist. Make sure the game
-window is windowed and resized to 1280x720 by
-[SmartSystemMenu](https://github.com/AlexanderPro/SmartSystemMenu)
-making the game window size 1264x712.
+There aren't much detailed words to describe this assist.
 
 SmartSystemMenu may influence some 3D games performance. For example, the
 refresh rate will be unexpectedly low while moving mouse to change direction.
@@ -95,18 +92,17 @@ the end of a maze exploration loop.
 
 4. Tactical Exercise (戦術演習). It has the same button as battle simulation.
 
-Basically, the script(s) just implement(s) clicking a image, so the scenarios
+Basically, the script just implement clicking a image, so the scenarios
 above are ideal situations.
 
 ## Notes
 
-I use [ShareX](https://getsharex.com/) to capture the game window and use
+I use [ShareX](https://getsharex.com/) to capture the game client and use
 [ImageGlass](https://imageglass.org/) to crop the image and get the rect of
 area for template images.
 
-The images in the directory "Games" are captured from its game. Their relative
-area rectangle infos are hard coded in the script(s) while the directory
-"Games/Irismysteria" is not used.
+The images in the directory "Res/MuvLuv" are captured from the game. Their relative
+area rectangle infos are hard coded in the script.
 
 The directory "Libs" has [OpenCV4120](https://github.com/opencv/opencv) lib
 and the corresponding

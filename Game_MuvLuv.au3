@@ -7,12 +7,13 @@
 #include <GUIConstantsEx.au3>
 #include <ScreenCapture.au3>
 #include <StaticConstants.au3>
+#include <WinAPI.au3>
 
-; Assume the game window size is 1264x712, not the client area size.
-;   The size is it because my template images are captured on this size.
-; This window size is adjusted by SmartSystemMenu. Resize to 1280x720.
-;   ShareX can capture the game window in 1264x712.
-; The function `ImageSearch` has a parameter relating to this size.
+
+; client size: 1280x720
+; window size: 1282x759
+; gui size: 1298x767
+
 
 DllCall("user32.dll", "bool", "SetProcessDPIAware")
 Local $arrDPIs = DllCall("user32.dll", "uint", "GetDpiForSystem") ; Windows 10+
@@ -23,7 +24,7 @@ _GDIPlus_Startup()
 OnAutoItExitRegister("_OnAutoItExit")
 
 Global $sGameWinTitle   = "マブラヴ"
-Global $sGameResDir     = @ScriptDir & "\Games\MuvLuv\"
+Global $sGameResDir     = @ScriptDir & "\Res\MuvLuv\"
 Global $sScriptLog      = @ScriptDir & "\Game_MuvLuv.log"
 Global $iLoopTimer      = 500
 
@@ -93,7 +94,7 @@ Local $iTipsGap = $iTipsH + Int(5 * $iWinScale)
 Local $aTipsText[3] = [ _
     "Tip1: Press Esc/End to stop looping.", _
     "Tip2: Keep an eye on the game.", _
-    "Tip3: 1280x720 by SmartSystemMenu." _
+    "Tip3: Client size 1280x720." _
 ]
 For $i = 0 To 2
     Local $hIdTip = GUICtrlCreateLabel($aTipsText[$i], $iTipsX, $iTipsY + ($i * $iTipsGap), $iTipsW, $iTipsH)
@@ -268,65 +269,47 @@ Func ActionPause($iMilliSeconds)
     $bPausing = True
 EndFunc
 
-Func _WinAPI_GetPosWithoutShadow($hWnd)
+Func _WinAPI_GetClientPos($hWnd)
     If Not IsHWnd($hWnd) Then $hWnd = WinGetHandle($hWnd)
     If Not $hWnd Then Return False
 
+    Local $tRect = _WinAPI_GetClientRect($hWnd)
+    If @error Then Return False
+
+    Local $tPoint = DllStructCreate("long X;long Y")
+    DllStructSetData($tPoint, "X", 0)
+    DllStructSetData($tPoint, "Y", 0)
+    _WinAPI_ClientToScreen($hWnd, DllStructGetPtr($tPoint))
+    If @error Then Return False
+
     Local $aPos[4]
-    Local $bSuccess = False
-
-    Local $tRect = DllStructCreate("long Left;long Top;long Right;long Bottom;")
-    ; DWMWA_EXTENDED_FRAME_BOUNDS = 9
-    Local $aRet = DllCall("dwmapi.dll", "long", "DwmGetWindowAttribute", _
-            "hwnd", $hWnd, _
-            "dword", 9, _
-            "ptr", DllStructGetPtr($tRect), _
-            "dword", DllStructGetSize($tRect))
-
-    If Not @error And $aRet[0] = 0 Then
-        $aPos[0] = DllStructGetData($tRect, "Left")
-        $aPos[1] = DllStructGetData($tRect, "Top")
-        $aPos[2] = DllStructGetData($tRect, "Right") - $aPos[0]  ; Width
-        $aPos[3] = DllStructGetData($tRect, "Bottom") - $aPos[1] ; Height
-        $bSuccess = True
-    EndIf
-
-    If Not $bSuccess Then
-        Local $aNativePos = WinGetPos($hWnd)
-        If IsArray($aNativePos) Then
-            $aPos = $aNativePos
-            $bSuccess = True
-        EndIf
-    EndIf
-
-    If Not $bSuccess Then Return False
-
+    $aPos[0] = DllStructGetData($tPoint, "X") ; Left
+    $aPos[1] = DllStructGetData($tPoint, "Y") ; Top
+    $aPos[2] = DllStructGetData($tRect, "Right") ; Width
+    $aPos[3] = DllStructGetData($tRect, "Bottom") ; Height
     Return $aPos
 EndFunc
 
 ; Image Search Functions.
 ; #FUNCTION# ==========================================================================================================
 ; Name ..........: ImageSearch
-; Description ...: Find image in the game window or subarea relative to the game window.
-; Syntax ........: ImageSearch($sImageFile[, $fThreshold = 0.8[, $arrSubArea = Default[, $iBaseHeight = 712]]])
+; Description ...: Find image in the game client or subarea relative to the game client.
+; Syntax ........: ImageSearch($sImageFile[, $fThreshold = 0.8[, $arrSubArea = Default[, $iBaseClientHeight = 720]]])
 ; Parameters ....: $sImageFile      - Image path.
 ;                  $fThreshold      - [optional] The threshold. Default is 0.8
-;                  $arrSubArea      - [optional] The sub area [x, y, w, h] relative to the game window. Default is the
-;                                                whole game window.
-;                  $iBaseHeight     - [optional] The base game window height where you capture the template images. So
-;                                                the  captured images should be capture in the same window size. If the
-;                                                running game window size is different, the template image will be
-;                                                resized proportionally to  match the window size. Though it's better
-;                                                to keep your game window size consistent.
-; Return values .: Array of area relative to the game window if find or subarea if provided. Otherwise just silent.
-; Remarks .......:
-;   Assuming using SmartSystemMenu to resize to 1280x720 that give the game window size 1264x712 reducing the border
-;   shadow size I think.
+;                  $arrSubArea      - [optional] The sub area [x, y, w, h] relative to the game client. Default is the
+;                                                whole game client.
+;                  $iBaseClientHeight - [optional] The base game client height where you capture the template images. So
+;                                                the captured images should be capture in the same client size. If the
+;                                                running game client size is different, the template image will be
+;                                                resized proportionally to match the client size. Though it's better
+;                                                to keep your game client size consistent.
+; Return values .: Array of area relative to the game client if find or subarea if provided. Otherwise just silent.
 ; =====================================================================================================================
-Func ImageSearch($sImageFile, $fThreshold = 0.8, $arrSubArea = Default, $iBaseHeight = 712)
+Func ImageSearch($sImageFile, $fThreshold = 0.8, $arrSubArea = Default, $iBaseClientHeight = 720)
     Local $imgTempl = _OpenCV_imread_and_check($sImageFile)
 
-    Local $arrArea = _WinAPI_GetPosWithoutShadow($sGameWinTitle)
+    Local $arrArea = _WinAPI_GetClientPos($sGameWinTitle)
     Local $iActualHeight = $arrArea[3]
     If $arrSubArea <> Default Then
         $arrArea[0] += $arrSubArea[0]
@@ -340,8 +323,8 @@ Func ImageSearch($sImageFile, $fThreshold = 0.8, $arrSubArea = Default, $iBaseHe
         Return False
     EndIf
 
-    If $iActualHeight <> $iBaseHeight Then
-        Local $fProportion = $iActualHeight / $iBaseHeight
+    If $iActualHeight <> $iBaseClientHeight Then
+        Local $fProportion = $iActualHeight / $iBaseClientHeight
         If $arrSubArea <> Default Then
             $arrArea[0] += int($arrSubArea[0] * ($fProportion - 1))
             $arrArea[1] += int($arrSubArea[1] * ($fProportion - 1))
@@ -388,11 +371,11 @@ EndFunc
 ; CD: If the image would still be presented for a while after being clicked,
 ; then if in the next loop the same image is the
 ; "next" detected, skip it for 1 as the CD unit.
-Func ClickImage($sImageFile, $fThreshold = 0.85, $iShiftX = 0, $iShiftY = 0, $bCDOn = False, $iCDMax = 2, $arrSubArea = Default, $iBaseHeight = 712)
+Func ClickImage($sImageFile, $fThreshold = 0.85, $iShiftX = 0, $iShiftY = 0, $bCDOn = False, $iCDMax = 2, $arrSubArea = Default, $iBaseClientHeight = 720)
     Static $sCDImageFile = ""
     Static $iCD = 0
 
-    Local $arrRect = ImageSearch($sImageFile, $fThreshold, $arrSubArea, $iBaseHeight)
+    Local $arrRect = ImageSearch($sImageFile, $fThreshold, $arrSubArea, $iBaseClientHeight)
     If Not IsArray($arrRect) Then
         Return SetError(1, 0, False)
     EndIf
@@ -408,17 +391,21 @@ Func ClickImage($sImageFile, $fThreshold = 0.85, $iShiftX = 0, $iShiftY = 0, $bC
         $sCDImageFile = $sImageFile
     EndIf
 
-    Local $arrArea = _WinAPI_GetPosWithoutShadow($sGameWinTitle)
+    Local $arrArea = _WinAPI_GetClientPos($sGameWinTitle)
     Local $iActualHeight = $arrArea[3]
     If $arrSubArea <> Default Then
         $arrRect[0] += $arrSubArea[0]
         $arrRect[1] += $arrSubArea[1]
     EndIf
 
-    If $iActualHeight <> $iBaseHeight And $arrSubArea <> Default Then
-        Local $fProportion = $iActualHeight / $iBaseHeight
-        $arrRect[0] += int($arrSubArea[0] * ($fProportion - 1))
-        $arrRect[1] += int($arrSubArea[1] * ($fProportion - 1))
+    If $iActualHeight <> $iBaseClientHeight Then
+        Local $fProportion = $iActualHeight / $iBaseClientHeight
+        If $arrSubArea <> Default Then
+            $arrRect[0] += int($arrSubArea[0] * ($fProportion - 1))
+            $arrRect[1] += int($arrSubArea[1] * ($fProportion - 1))
+        EndIf
+        $iShiftX = int($iShiftX * $fProportion)
+        $iShiftY = int($iShiftY * $fProportion)
     EndIf
 
     ClickRelateWindow($arrArea, $arrRect, $iShiftX, $iShiftY)
@@ -469,15 +456,15 @@ Func MazeShopBuying()
 
     If Not $bRunning Then Return True
 
-    Local $areaCurrency = [1060, 70, 160, 45]
-    If ClickImage($sGameResDir & "Maze_Shop.png", $fHigherThreshold, -50, 570, $bDefaultCDOn, $iDefaultCDFactor, $areaCurrency) Then
+    Local $areaCurrency = [1060, 70, 161, 41]
+    If ClickImage($sGameResDir & "MazeRouge\Txt_ShopMon0.png", $fHigherThreshold, -50, 610, $bDefaultCDOn, $iDefaultCDFactor, $areaCurrency) Then
         Return True
     EndIf
     Return $bBoughtB
 EndFunc
 
 Func _ScanAndClickBuy($sImageName, $fThreshold, $bCDOn, $iCDFactor)
-    Local $arrMegaShopViewport = [450, 145, 750, 450]
+    Local $arrMegaShopViewport = [490, 155, 735, 450]
     Local $sFullImagePath = $sGameResDir & "MazeShop\" & $sImageName
 
     If ClickImage($sFullImagePath, $fThreshold, 0, 0, $bCDOn, $iCDFactor, $arrMegaShopViewport) Then
@@ -490,7 +477,7 @@ EndFunc
 Func _MazeShopScroll($sDirection = "down")
     If Not $bRunning Then Return
 
-    Local $arrArea = _WinAPI_GetPosWithoutShadow($sGameWinTitle)
+    Local $arrArea = _WinAPI_GetClientPos($sGameWinTitle)
     If @error Then Return
 
     Local $iTargetX = $arrArea[0] + Int($arrArea[2] * 0.577)
@@ -508,9 +495,9 @@ EndFunc
 Func MazeShopBuyingTypes()
     Local $fDefaultThreshold = 0.85, $bCD = False, $iCDFactor = 2
     Local $aTypes[3][5] = [ _
-        ["Type_EN.png",       340, 135, 135, 35], _
-        ["Type_Agile.png",    485, 135, 135, 35], _
-        ["Type_Physical.png", 195, 135, 135, 35]  _
+        ["Type_EN.png",       336, 110, 126, 26], _
+        ["Type_Agile.png",    490, 110, 126, 26], _
+        ["Type_Phys.png",     184, 110, 126, 26]  _
     ]
 
     If MazeShopBuying() Then Return True
@@ -528,14 +515,14 @@ EndFunc
 Func MazeShopFarming()
     Local $fDefault = 0.85, $fLow = 0.80, $bCD = False, $iCDFactor = 2, $iDelayReaction = 250
 
-    Local $arrDailyBatchArea = [1065, 135, 150, 45]
+    Local $arrDailyBatchArea = [1095, 110, 126, 26]
     ClickImage($sGameResDir & "MazeShop\Daily_Batch.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrDailyBatchArea)
     Sleep($iDelayReaction)
 
     Local $aCates[3][5] = [ _
-        ["Cate_TypeEquip.png", 10, 295, 135, 75], _
-        ["Cate_Excavate.png",  10, 375, 135, 75], _
-        ["Cate_Artifact.png",  10, 455, 135, 75]  _
+        ["Cate_TypeEquip.png", 19, 302, 126, 26], _
+        ["Cate_Excavate.png",  19, 389, 126, 26], _
+        ["Cate_Artifact.png",  19, 459, 126, 26]  _
     ]
 
     For $i = 0 To 2
@@ -550,11 +537,15 @@ Func MazeShopFarming()
 EndFunc
 
 Func _MazeShopAbort($fThreshold, $bCD, $iCDFactor)
-    Local $areaAbortBtn = [1020, 635, 195, 45]
-    ClickImage($sGameResDir & "MazeShop\AbortBtn.png", $fThreshold, 0, 0, $bCD, $iCDFactor, $areaAbortBtn)
-    Local $areaAbortOK = [660, 525, 160, 45]
-    While $bRunning And Not ClickImage($sGameResDir & "MazeShop\AbortOK.png", $fThreshold, 0, 0, $bCD, $iCDFactor, $areaAbortOK)
+    Local $areaShopDoneBtn = [1076, 644, 166, 36]
+    ClickImage($sGameResDir & "MazeShop\WB_ShopDone.png", $fThreshold, 0, 0, $bCD, $iCDFactor, $areaShopDoneBtn)
+    Local $areaAbortOK = [669, 529, 166, 36]
+    Local $iCounter = 0
+    While $bRunning And Not ClickImage($sGameResDir & "MazeRouge\RB_OK.png", $fThreshold, 0, 0, $bCD, $iCDFactor, $areaAbortOK)
         Sleep(500)
+        If ++$iCounter > 10 Then
+            Break
+        EndIf
     WEnd
 EndFunc
 
@@ -563,24 +554,32 @@ Func MazeNetworkErrored()
     Local $iSleep = 2000
     Sleep($iSleep)
 
-    Local $sHomeQuestPath = $sGameResDir & "Home_Quest.png"
-    Local $areaHomeQuest = [705, 655, 105, 40]
+    Local $sHomeQuestPath = $sGameResDir & "Com\Bar_Quest.png"
+    Local $areaHomeQuest = [730, 674, 81, 21]
+    Local $iCounter = 0
     While $bRunning And Not ClickImage($sHomeQuestPath, $fDefault, 0, 0, $bCD, $iCDFactor, $areaHomeQuest)
         Sleep($iSleep)
+        If ++$iCounter > 5 Then
+            Break
+        EndIf
     WEnd
 
     Sleep($iSleep)
 
-    Local $sHomeMazePath = $sGameResDir & "HomeQuest_Maze.png"
-    Local $areaHomeMaze = [985, 315, 180, 50]
+    Local $sHomeMazePath = $sGameResDir & "HomeQuest\Maze.png"
+    Local $areaHomeMaze = [1030, 301, 166, 36]
+    $iCounter = 0
     While $bRunning And Not ClickImage($sHomeMazePath, $fDefault, 0, 0, $bCD, $iCDFactor, $areaHomeMaze)
         Sleep($iSleep)
+        If ++$iCounter > 5 Then
+            Break
+        EndIf
     WEnd
 
     Sleep($iSleep)
 
-    Local $sHomeMazeEntryPath = $sGameResDir & "HomeQuest_MazeEntryA.png"
-    Local $areaHomeMazeEntryA = [310, 510, 270, 90]
+    Local $sHomeMazeEntryPath = $sGameResDir & "HomeQuest\MazeEntryA.png"
+    Local $areaHomeMazeEntryA = [320, 515, 270, 90]
     ClickImage($sHomeMazeEntryPath, $fDefault, 0, 0, $bCD, $iCDFactor, $areaHomeMazeEntryA)
 EndFunc
 
@@ -611,10 +610,17 @@ Func AutoClick()
         Return
     EndIf
 
-    Local $aNativePos = WinGetPos($sGameWinTitle)
-    if $aNativePos[2] <> 1280 And $aNativePos[3] <> 720 Then
+    Local $aClientSize = WinGetClientSize($sGameWinTitle)
+    Local $iWinWDiff = 1280 - $aClientSize[0]
+    Local $iWinHDiff = 720 - $aClientSize[1]
+    if $iWinWDiff Or $iWinHDiff Then
+        Local $aWinSize = WinGetPos($sGameWinTitle)
+        WinMove( _
+            $sGameWinTitle, "", Default, Default, _
+            $aWinSize[2] + $iWinWDiff, _
+            $aWinSize[3] + $iWinHDiff _
+        )
         GUICtrlSetData($lblStatus, "  Status: Resized ")
-        WinMove($sGameWinTitle, "", Default, Default, 1280, 720)
     EndIf
 
     Local $hTimer = $bWriteLogOn ? TimerInit() : 0
@@ -624,30 +630,34 @@ Func AutoClick()
     Local $bCD = False, $iCDFactor = 2
     Local $iPopupDelay = 500
 
-    Local $arrLoadingArea = [585, 335, 95, 75]
-    If IsArray(ImageSearch($sGameResDir & "Game_Loading.png", $fDefault, $arrLoadingArea)) Then
+    Local $arrLoadingArea = [595, 325, 91, 66]
+    If IsArray(ImageSearch($sGameResDir & "Com\Sys_Loading.png", $fDefault, $arrLoadingArea)) Then
         ActionPause(1500)
         Return
     EndIf
 
-    Local $arrCircleHard = [828, 513, 155, 55]
-    ClickImage($sGameResDir & "Circle_Hard.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrCircleHard)
+    Local $arrRaidHard = [856, 511, 161, 51]
+    ClickImage($sGameResDir & "Com\Raid_Hard.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrRaidHard)
 
-    Local $arrRB = [781, 493, 483, 219]
-    If ClickImage($sGameResDir & "Maze_Ready.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrRB) Or _
-       ClickImage($sGameResDir & "Maze_Route.png", $fLow - 0.05, 0, 0, $bCD, $iCDFactor, $arrRB) Or _
-       ClickImage($sGameResDir & "Quest_Enter.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrRB) Then
+    Local $arrRB = [960, 510, 320, 210]
+    If ClickImage($sGameResDir & "MazeRouge\RB_Start.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrRB) Or _
+       ClickImage($sGameResDir & "MazeRouge\RB_Route.png", $fLow - 0.05, 0, 0, $bCD, $iCDFactor, $arrRB) Or _
+       ClickImage($sGameResDir & "Quest\RB_Enter.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrRB) Then
         ActionPause(2500)
         Return
     EndIf
 
-    Local $aSingleClicks[7] = ["Maze_Enter.png", "Maze_NoHelper.png", "Maze_DeHelper.png", "Sim_Enter.png", "Com_Battle.png", "Com_Continue.png", "Quest_Scene.png"]
+    Local $aSingleClicks[8] = [ _
+        "MazeRouge\RB_Enter.png", "MazeRouge\WB_Leave.png", "MazeRouge\RB_Decide.png", _
+        "Quest\RB_Scene.png", "Com\RB_Ready.png", "Com\RB_Raid.png", _
+        "Com\RB_Sally.png", "Com\RB_Next.png" _
+    ]
     For $img In $aSingleClicks
         ClickImage($sGameResDir & $img, $fDefault, 0, 0, $bCD, $iCDFactor, $arrRB)
     Next
 
-    Local $arrRU = [740, 36, 524, 93]
-    If ClickImage($sGameResDir & "Game_Menu.png", $fDefault, -560, 370, $bCD, $iCDFactor, $arrRU) Then
+    Local $arrRU = [960, 0, 320, 210]
+    If ClickImage($sGameResDir & "Com\Sys_Menu.png", $fDefault, -560, 370, $bCD, $iCDFactor, $arrRU) Then
         If $bMazeFarmingOn Then
             $bSingleRunning = True
             MazeNetworkErrored()
@@ -655,88 +665,60 @@ Func AutoClick()
         EndIf
         Return
     EndIf
-    ClickImage($sGameResDir & "Com_SkipBattle.png", $fLow, 0, 0, $bCD, $iCDFactor, $arrRU)
-    ClickImage($sGameResDir & "Com_SkipLight.png", $fLow, 0, 0, $bCD, $iCDFactor, $arrRU)
-    ClickImage($sGameResDir & "Maze_Shop.png", $fHigh, -50, 570, $bCD, $iCDFactor, $arrRU)
+    ClickImage($sGameResDir & "Com\BB_SkipA.png", $fLow, 0, 0, $bCD, $iCDFactor, $arrRU)
+    ClickImage($sGameResDir & "Com\BB_SkipB.png", $fLow, 0, 0, $bCD, $iCDFactor, $arrRU)
+    ClickImage($sGameResDir & "Com\BB_SkipC.png", $fLow, 0, 0, $bCD, $iCDFactor, $arrRU)
+    ClickImage($sGameResDir & "MazeRouge\Txt_ShopMon0.png", $fHigh, -50, 610, $bCD, $iCDFactor, $arrRU)
 
-    Local $arrGachaTitleArea = [84, 52, 120, 43]
-    ClickImage($sGameResDir & "Gacha_Title.png", $fDefault, -90, 0, $bCD, $iCDFactor, $arrGachaTitleArea)
+    Local $arrGachaTitleArea = [104, 21, 86, 26]
+    ClickImage($sGameResDir & "Com\Txt_Gacha.png", $fDefault, -90, 0, $bCD, $iCDFactor, $arrGachaTitleArea)
 
-    Local $arrDw = [310, 385, 645, 205]
-    ClickImage($sGameResDir & "Game_ErrorClose.png", $fLow, 0, 0, $bCD, $iCDFactor, $arrDw)
-    ClickImage($sGameResDir & "Game_ErrorTitle.png", $fLow, 0, 0, $bCD, $iCDFactor, $arrDw)
+    Local $arrXDw = [300, 380, 680, 210]  ; Down
+    ClickImage($sGameResDir & "Com\WB_Close.png", $fLow, 0, 0, $bCD, $iCDFactor, $arrXDw)
+    ClickImage($sGameResDir & "Com\RB_Title.png", $fLow, 0, 0, $bCD, $iCDFactor, $arrXDw)
+    ClickImage($sGameResDir & "MazeRouge\RB_OK.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrXDw)
 
-    Local $arrFlashSaleArea = [523, 187, 217, 49]
-    ClickImage($sGameResDir & "Com_FlashSale.png", $fDefault, 555, -135, $bCD, $iCDFactor, $arrFlashSaleArea)
+    Local $arrM1 = [576, 141, 126, 26]
+    ClickImage($sGameResDir & "MazeRouge\Txt_SelRelic.png", $fDefault, 0, 150, $bCD, $iCDFactor, $arrM1)
 
-    Local $arrC2 = [499, 162, 272, 49]
-    If ClickImage($sGameResDir & "Com_FlashRelay.png", $fDefault, 230, 110, False, $iCDFactor, $arrC2) Then
-        ClickImage($sGameResDir & "Com_FlashRelay.png", $fDefault, 555, -110, False, $iCDFactor, $arrC2)
-    EndIf
-
-    Local $arrM1 = [543, 131, 185, 68]
-    ClickImage($sGameResDir & "Maze_SelRelic.png", $fDefault, 0, 150, $bCD, $iCDFactor, $arrM1)
-    ClickImage($sGameResDir & "Maze_SelRelic200.png", $fDefault, 0, 150, $bCD, $iCDFactor, $arrM1)
-
-    Local $arrM2 = [385, 238, 203, 45]
-    ClickImage($sGameResDir & "Maze_SelTypeA.png", $fLow, 270, 145, $bCD, $iCDFactor, $arrM2)
-    ClickImage($sGameResDir & "Maze_SelTypeB.png", $fLow, 270, 145, $bCD, $iCDFactor, $arrM2)
-    ClickImage($sGameResDir & "Maze_SelTypeC.png", $fLow, 270, 145, $bCD, $iCDFactor, $arrM2)
-
-    Local $arrM3 = [1007, 254, 206, 44]
-    ClickImage($sGameResDir & "Maze_SelHelperA.png", $fHigh, 0, 0, $bCD, $iCDFactor, $arrM3)
-    ClickImage($sGameResDir & "Maze_SelHelperB.png", $fHigh, 0, 0, $bCD, $iCDFactor, $arrM3)
-
-    Local $arrTransArea = [67, 386, 229, 78]
-    Local $arrEvOptsArea = [1128, 307, 100, 370]
-    Local $arrNotCraftArea = [864, 626, 149, 39]
-    Local $arrNotCraftOKArea = [643, 524, 190, 50]
-    ClickImage($sGameResDir & "Maze_Trans.png", $fDefault, 960, 240, $bCD, $iCDFactor, $arrTransArea)
-    ClickImage($sGameResDir & "Maze_EvOpts.png", $fDefault, -50, -25, $bCD, $iCDFactor, $arrEvOptsArea)
+    Local $arrEvOptArea = [1144, 324, 115, 375]
+    Local $arrCraftDoneArea = [905, 636, 126, 26]
+    ClickImage($sGameResDir & "MazeRouge\Txt_EvOpt.png", $fDefault, -50, -25, $bCD, $iCDFactor, $arrEvOptArea)
 
     If $bMazeCraftSkip Then
-        If ClickImage($sGameResDir & "Maze_CraftDone.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrNotCraftArea) Then
+        If ClickImage($sGameResDir & "MazeRouge\WB_CraftDone.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrCraftDoneArea) Then
             Sleep($iPopupDelay)
-            ClickImage($sGameResDir & "Maze_CraftDoneOK.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrNotCraftOKArea)
+            ClickImage($sGameResDir & "MazeRouge\RB_OK.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrXDw)
         EndIf
     EndIf
 
-    ; Reuse ok button
-    Local $arrC1 = [482, 356, 300, 300]
-    ClickImage($sGameResDir & "Maze_CraftDoneOK.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrC1)
-
-    If IsArray(ImageSearch($sGameResDir & "Com_SkipLocked.png", $fDefault, $arrRU)) Then
-        ActionPause(4500)
-        Return
-    EndIf
-
-    If IsArray(ImageSearch($sGameResDir & "Com_TryAgain.png", $fDefault, $arrRB)) Then
+    If IsArray(ImageSearch($sGameResDir & "Com\WB_TryAgain.png", $fDefault, $arrRB)) Then
         ActionStop()
         GUICtrlSetData($lblStatus, "  Battle: Failed  ")
         Return
     EndIf
-    If IsArray(ImageSearch($sGameResDir & "Com_Limited.png", $fHigh + 0.05, $arrRB)) Then
+    If IsArray(ImageSearch($sGameResDir & "Com\Txt_Limited.png", $fHigh + 0.05, $arrRB)) Then
         ActionStop()
         GUICtrlSetData($lblStatus, " Activity: Limited")
         Return
     EndIf
-    If IsArray(ImageSearch($sGameResDir & "Quest_Clear.png", $fDefault, $arrRB)) Then
+    If IsArray(ImageSearch($sGameResDir & "Quest\RB_Clear.png", $fDefault, $arrRB)) Then
         ActionStop()
         GUICtrlSetData($lblStatus, "  Quest: Clear    ")
         Return
     EndIf
-    If IsArray(ImageSearch($sGameResDir & "ADV_Menu.png", $fDefault, $arrRU)) Then
+    If IsArray(ImageSearch($sGameResDir & "Com\BB_Menu.png", $fDefault, $arrRU)) Then
         ActionStop()
-        GUICtrlSetData($lblStatus, "  Status: InMenu  ")
+        GUICtrlSetData($lblStatus, "  Status: InADV   ")
         Return
     EndIf
 
-    Local $arrShopDoneCancelArea = [433, 526, 192, 47]
+    Local $arrShopDoneCancelArea = [444, 529, 166, 36]
     If $bMazeFarmingOn Then
-        ClickImage($sGameResDir & "MazeShop\AbortCancel.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrShopDoneCancelArea)
+        ClickImage($sGameResDir & "MazeShop\WB_Cancel.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrShopDoneCancelArea)
     EndIf
     Local $iTimerReaction = 500
-    Local $arrDailyUnitArea = [630, 135, 135, 35]
+    Local $arrDailyUnitArea = [644, 110, 126, 26]
     If ClickImage($sGameResDir & "MazeShop\Daily_Unit.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrDailyUnitArea) Then
         $bSingleRunning = True
         Sleep($iTimerReaction)
@@ -745,7 +727,7 @@ Func AutoClick()
             Return
         EndIf
 
-        Local $arrDailyClearArea = [315, 580, 70, 35]
+        Local $arrDailyClearArea = [263, 586, 126, 26]
         If IsArray(ImageSearch($sGameResDir & "MazeShop\Daily_Clear.png", $fLow, $arrDailyClearArea)) Then
             If $bMazeFarmingOn Then
                 MazeShopFarming()
