@@ -579,7 +579,7 @@ Func MazeNetworkErrored()
     Sleep($iSleep)
 
     Local $sHomeMazeEntryPath = $sGameResDir & "HomeQuest\MazeEntryA.png"
-    Local $areaHomeMazeEntryA = [320, 515, 270, 90]
+    Local $areaHomeMazeEntryA = [312, 517, 246, 61]
     ClickImage($sHomeMazeEntryPath, $fDefault, 0, 0, $bCD, $iCDFactor, $areaHomeMazeEntryA)
 EndFunc
 
