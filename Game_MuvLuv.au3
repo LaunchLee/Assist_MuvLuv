@@ -43,6 +43,10 @@ Global Const $iShopBuyMaxAttempts = 40, $iShopBuyTimeoutMs = 60000
 Global Const $iLoadingTimeoutMs = 120000
 Global Const $iRecoveryMaxAttempts = 3, $iRecoveryTimeoutMs = 180000
 Global $hLoadingWatch = 0, $hRecoveryWatch = 0, $iRecoveryAttempts = 0
+Global Const $iShopRetryDelayMs = 10000, $iRecoveryRetryDelayMs = 30000, $iWarningHoldMs = 15000
+Global $hShopRetryWatch = 0, $hRecoveryRetryWatch = 0
+Global $hWarningWatch = 0, $sWarningStatus = "", $sWarningDetail = ""
+Global $hWarningLogWatch = 0, $sLoggedWarning = ""
 
 Global $cv = _OpenCV_get()
 If Not IsObj($cv) Then
@@ -246,6 +250,72 @@ Func _ResetWatchdogs()
     $hLoadingWatch = 0
     $hRecoveryWatch = 0
     $iRecoveryAttempts = 0
+    $hShopRetryWatch = 0
+    $hRecoveryRetryWatch = 0
+    $hWarningWatch = 0
+    $sWarningStatus = ""
+    $sWarningDetail = ""
+    $hWarningLogWatch = 0
+    $sLoggedWarning = ""
+EndFunc
+
+; A warning ends only the current attempt; normal detection remains registered.
+Func _UpdateRunningStatus()
+    If Not $bRunning Then Return
+    If $hWarningWatch <> 0 And TimerDiff($hWarningWatch) < $iWarningHoldMs Then
+        GUICtrlSetData($lblStatus, $sWarningStatus)
+        GUICtrlSetColor($lblStatus, 0xFFD966)
+        GUICtrlSetTip($lblStatus, $sWarningDetail)
+        Return
+    EndIf
+    $hWarningWatch = 0
+    GUICtrlSetTip($lblStatus, "")
+    GUICtrlSetData($lblStatus, $bPausing ? "  Status: Waiting " : "  Status: Running ")
+    GUICtrlSetColor($lblStatus, $bPausing ? 0xFFD966 : 0x00FF00)
+EndFunc
+
+Func _WarnForFailure($sStatus, $sDetail)
+    If Not $bRunning Then Return False
+    $sWarningStatus = $sStatus
+    $sWarningDetail = $sDetail
+    $hWarningWatch = TimerInit()
+    _UpdateRunningStatus()
+    ; Repeated loading/match failures must not flood the console or log every tick.
+    If $sLoggedWarning <> $sDetail Or $hWarningLogWatch = 0 Or TimerDiff($hWarningLogWatch) >= 30000 Then
+        ConsoleWrite($sDetail & @CRLF)
+        If $bWriteLogOn Then WriteLog($sDetail)
+        $sLoggedWarning = $sDetail
+        $hWarningLogWatch = TimerInit()
+    EndIf
+    Return False
+EndFunc
+
+Func _ShopRetryReady()
+    If $hShopRetryWatch = 0 Then Return True
+    If TimerDiff($hShopRetryWatch) < $iShopRetryDelayMs Then Return False
+    $hShopRetryWatch = 0
+    Return True
+EndFunc
+
+Func _RecoveryRetryReady()
+    If $hRecoveryRetryWatch = 0 Then Return True
+    If TimerDiff($hRecoveryRetryWatch) < $iRecoveryRetryDelayMs Then Return False
+    $hRecoveryRetryWatch = 0
+    Return True
+EndFunc
+
+Func _WarnShopFailure($sStatus, $sDetail)
+    If Not $bRunning Then Return False
+    $hShopRetryWatch = TimerInit()
+    Return _WarnForFailure($sStatus, $sDetail & " Detection continues; shop retries resume after 10 seconds.")
+EndFunc
+
+Func _DeferNetworkRecovery($sStatus, $sDetail)
+    If Not $bRunning Then Return False
+    $hRecoveryWatch = 0
+    $iRecoveryAttempts = 0
+    $hRecoveryRetryWatch = TimerInit()
+    Return _WarnForFailure($sStatus, $sDetail & " Detection continues; network recovery retries resume after 30 seconds.")
 EndFunc
 
 Func _StopForFailure($sStatus, $sDetail)
@@ -265,7 +335,7 @@ Func _WaitWhileRunning($iMilliseconds)
         _HandleGUIMessage(GUIGetMsg(), False)
         If Not $bRunning Then Return False
         If Not WinExists($sGameWinTitle) Then Return _StopForFailure(" Game: Missing  ", "Game window disappeared during an operation.")
-        If $hRecoveryWatch <> 0 And TimerDiff($hRecoveryWatch) >= $iRecoveryTimeoutMs Then Return _StopForFailure(" Net: Timeout   ", "Network recovery did not reach a recognized game start within 3 minutes.")
+        If $hRecoveryWatch <> 0 And TimerDiff($hRecoveryWatch) >= $iRecoveryTimeoutMs Then Return _DeferNetworkRecovery(" Net: Timeout   ", "Network recovery did not reach a recognized game start within 3 minutes.")
         Sleep(20)
     WEnd
     Return $bRunning
@@ -284,10 +354,11 @@ Func _WaitForImageClick($sImageFile, $fThreshold, $arrSubArea, $iAttempts, $iDel
 EndFunc
 
 Func _BuyShopUpgrades($fThreshold, $bCDOn, $iCDFactor, $iDelayMs)
+    If Not $bRunning Or Not _ShopRetryReady() Then Return False
     Local $hBuy = TimerInit(), $iAttempts = 0
     While $bRunning
         If $iAttempts >= $iShopBuyMaxAttempts Or TimerDiff($hBuy) >= $iShopBuyTimeoutMs Then
-            Return _StopForFailure(" Shop: Timeout  ", "Shop upgrade attempts/time limit reached; no further clicks will be sent.")
+            Return _WarnShopFailure(" Shop: Timeout  ", "Shop upgrade attempts/time limit reached; this purchase batch was abandoned.")
         EndIf
         If Not _ScanAndClickBuy("BuyUpgrade.png", $fThreshold, $bCDOn, $iCDFactor) Then Return $bRunning
         $iAttempts += 1
@@ -327,17 +398,16 @@ EndFunc
 
 Func ActionContinue()
     If Not $bRunning Then Return
-    GUICtrlSetData($lblStatus, "  Status: Running ")
-    GUICtrlSetColor($lblStatus, 0x00FF00)
     ResetPausingState()
+    _UpdateRunningStatus()
 EndFunc
 
 Func ActionPause($iMilliSeconds)
-    GUICtrlSetData($lblStatus, "  Status: Waiting ")
-    GUICtrlSetColor($lblStatus, 0xFFD966)
+    If Not $bRunning Then Return
     $iPausingTimer = 0
     $iPausingMax = $iMilliSeconds
     $bPausing = True
+    _UpdateRunningStatus()
 EndFunc
 
 Func _WinAPI_GetClientPos($hWnd)
@@ -598,35 +668,36 @@ Func MazeShopFarming()
 EndFunc
 
 Func _MazeShopAbort($fThreshold, $bCD, $iCDFactor)
-    If Not $bRunning Then Return False
+    If Not $bRunning Or Not _ShopRetryReady() Then Return False
     Local $areaShopDoneBtn = [1076, 644, 166, 36]
     If Not _WaitForImageClick($sGameResDir & "MazeShop\WB_ShopDone.png", $fThreshold, $areaShopDoneBtn, 6, 500) Then
-        Return _StopForFailure(" Shop: Failed   ", "Shop exit button was not found after 6 attempts.")
+        Return _WarnShopFailure(" Shop: Failed   ", "Shop exit button was not found after 6 attempts.")
     EndIf
     Local $areaAbortOK = [669, 529, 166, 36]
     If _WaitForImageClick($sGameResDir & "MazeRouge\RB_OK.png", $fThreshold, $areaAbortOK, 11, 500) Then Return True
-    Return _StopForFailure(" Shop: Failed   ", "Shop exit confirmation was not found after 11 attempts.")
+    Return _WarnShopFailure(" Shop: Failed   ", "Shop exit confirmation was not found after 11 attempts.")
 EndFunc
 
 Func MazeNetworkErrored()
+    If Not $bRunning Or Not _RecoveryRetryReady() Then Return False
     Local $fDefault = 0.85, $iSleep = 2000
     If Not _WaitWhileRunning($iSleep) Then Return False
 
     Local $areaHomeQuest = [730, 674, 81, 21]
     If Not _WaitForImageClick($sGameResDir & "Com\Bar_Quest.png", $fDefault, $areaHomeQuest, 6, $iSleep) Then
-        Return _StopForFailure(" Net: Failed    ", "Network recovery failed: quest entry was not found after 6 attempts.")
+        Return _DeferNetworkRecovery(" Net: Failed    ", "Network recovery failed: quest entry was not found after 6 attempts.")
     EndIf
     If Not _WaitWhileRunning($iSleep) Then Return False
 
     Local $areaHomeMaze = [1030, 301, 166, 36]
     If Not _WaitForImageClick($sGameResDir & "HomeQuest\Maze.png", $fDefault, $areaHomeMaze, 6, $iSleep) Then
-        Return _StopForFailure(" Net: Failed    ", "Network recovery failed: maze entry was not found after 6 attempts.")
+        Return _DeferNetworkRecovery(" Net: Failed    ", "Network recovery failed: maze entry was not found after 6 attempts.")
     EndIf
     If Not _WaitWhileRunning($iSleep) Then Return False
 
     Local $areaHomeMazeEntryA = [312, 517, 246, 61]
     If Not _WaitForImageClick($sGameResDir & "HomeQuest\MazeEntryA.png", $fDefault, $areaHomeMazeEntryA, 6, $iSleep) Then
-        Return _StopForFailure(" Net: Failed    ", "Network recovery failed: maze start was not found after 6 attempts.")
+        Return _DeferNetworkRecovery(" Net: Failed    ", "Network recovery failed: maze start was not found after 6 attempts.")
     EndIf
     Return True
 EndFunc
@@ -643,6 +714,7 @@ EndFunc
 ; Looped Function
 Func AutoClick()
     If Not $bRunning Or $bSingleRunning Then Return
+    _UpdateRunningStatus()
 
     If Not WinExists($sGameWinTitle) Then
         _StopForFailure(" Game: Missing  ", "Game window not found.")
@@ -650,8 +722,7 @@ Func AutoClick()
     EndIf
 
     If $hRecoveryWatch <> 0 And TimerDiff($hRecoveryWatch) >= $iRecoveryTimeoutMs Then
-        _StopForFailure(" Net: Timeout   ", "Network recovery did not reach a recognized game start within 3 minutes.")
-        Return
+        _DeferNetworkRecovery(" Net: Timeout   ", "Network recovery did not reach a recognized game start within 3 minutes.")
     EndIf
 
     If $bPausing Then
@@ -688,13 +759,14 @@ Func AutoClick()
     If IsArray(ImageSearch($sGameResDir & "Com\Sys_Loading.png", $fDefault, $arrLoadingArea)) Then
         If $hLoadingWatch = 0 Then $hLoadingWatch = TimerInit()
         If TimerDiff($hLoadingWatch) >= $iLoadingTimeoutMs Then
-            _StopForFailure(" Load: Timeout  ", "Loading remained visible for 120 seconds; automation stopped.")
+            _WarnForFailure(" Load: Timeout  ", "Loading remained visible for 120 seconds; detection continues for other actionable images.")
+        Else
+            ActionPause(1500)
             Return
         EndIf
-        ActionPause(1500)
-        Return
+    Else
+        $hLoadingWatch = 0
     EndIf
-    $hLoadingWatch = 0
 
     Local $arrRaidHard = [856, 511, 161, 51]
     ClickImage($sGameResDir & "Com\Raid_Hard.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrRaidHard)
@@ -705,6 +777,7 @@ Func AutoClick()
        ClickImage($sGameResDir & "Quest\RB_Enter.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrRB) Then
         $hRecoveryWatch = 0
         $iRecoveryAttempts = 0
+        $hRecoveryRetryWatch = 0
         ActionPause(2500)
         Return
     EndIf
@@ -719,20 +792,20 @@ Func AutoClick()
     Next
 
     Local $arrRU = [960, 0, 320, 210]
-    If IsArray(ImageSearch($sGameResDir & "Com\Sys_Menu.png", $fDefault, $arrRU)) Then
+    If IsArray(ImageSearch($sGameResDir & "Com\Sys_Menu.png", $fDefault, $arrRU)) And (Not $bMazeFarmingOn Or _RecoveryRetryReady()) Then
         If $bMazeFarmingOn And $iRecoveryAttempts >= $iRecoveryMaxAttempts Then
-            _StopForFailure(" Net: Repeated  ", "Three consecutive network recovery attempts did not reach a recognized game start.")
+            _DeferNetworkRecovery(" Net: Repeated  ", "Three consecutive network recovery attempts did not reach a recognized game start.")
+        Else
+            If Not ClickImage($sGameResDir & "Com\Sys_Menu.png", $fDefault, -560, 370, $bCD, $iCDFactor, $arrRU) Then Return
+            If $bMazeFarmingOn Then
+                If $hRecoveryWatch = 0 Then $hRecoveryWatch = TimerInit()
+                $iRecoveryAttempts += 1
+                $bSingleRunning = True
+                MazeNetworkErrored()
+                $bSingleRunning = False
+            EndIf
             Return
         EndIf
-        If Not ClickImage($sGameResDir & "Com\Sys_Menu.png", $fDefault, -560, 370, $bCD, $iCDFactor, $arrRU) Then Return
-        If $bMazeFarmingOn Then
-            If $hRecoveryWatch = 0 Then $hRecoveryWatch = TimerInit()
-            $iRecoveryAttempts += 1
-            $bSingleRunning = True
-            MazeNetworkErrored()
-            $bSingleRunning = False
-        EndIf
-        Return
     EndIf
     ClickImage($sGameResDir & "Com\BB_SkipA.png", $fLow, 0, 0, $bCD, $iCDFactor, $arrRU)
     ClickImage($sGameResDir & "Com\BB_SkipB.png", $fLow, 0, 0, $bCD, $iCDFactor, $arrRU)
@@ -788,7 +861,7 @@ Func AutoClick()
     EndIf
     Local $iTimerReaction = 500
     Local $arrDailyUnitArea = [644, 110, 126, 26]
-    If ClickImage($sGameResDir & "MazeShop\Daily_Unit.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrDailyUnitArea) Then
+    If _ShopRetryReady() And ClickImage($sGameResDir & "MazeShop\Daily_Unit.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrDailyUnitArea) Then
         $bSingleRunning = True
         _WaitWhileRunning($iTimerReaction)
         If Not $bRunning Then
