@@ -590,7 +590,7 @@ Func MazeShopBuying()
     _MazeShopScroll("up")
     If Not _WaitWhileRunning($iDelayReaction) Then Return True
     Local $areaCurrency = [1060, 70, 161, 41]
-    If ClickImage($sGameResDir & "MazeRouge\Txt_ShopMon0.png", $fHigherThreshold, -50, 610, $bDefaultCDOn, $iDefaultCDFactor, $areaCurrency) Then Return True
+    If ClickImage($sGameResDir & "MazeRouge\Txt_ShopMon0.png", $fDefaultThreshold, -50, 610, $bDefaultCDOn, $iDefaultCDFactor, $areaCurrency) Then Return True
     Return $bBoughtB
 EndFunc
 
