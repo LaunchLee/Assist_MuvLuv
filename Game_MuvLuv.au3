@@ -38,6 +38,12 @@ Global $iPausingTimer   = 0
 Global $iPausingMax     = $iLoopTimer
 Global $bSingleRunning  = False
 
+; All retry limits are per operation; watchdogs use elapsed wall-clock time.
+Global Const $iShopBuyMaxAttempts = 40, $iShopBuyTimeoutMs = 60000
+Global Const $iLoadingTimeoutMs = 120000
+Global Const $iRecoveryMaxAttempts = 3, $iRecoveryTimeoutMs = 180000
+Global $hLoadingWatch = 0, $hRecoveryWatch = 0, $iRecoveryAttempts = 0
+
 Global $cv = _OpenCV_get()
 If Not IsObj($cv) Then
     MsgBox(16, "Error", "Failed to get OpenCV COM object.")
@@ -203,18 +209,24 @@ While True
         EndIf
     EndIf
 
-    Switch GUIGetMsg()
+    _HandleGUIMessage(GUIGetMsg())
+WEnd
+
+; The same event handler is pumped during waits, so Stop and Close remain usable.
+Func _HandleGUIMessage($iMsg, $bAllowStart = True)
+    Switch $iMsg
         ; When click close button
         Case $GUI_EVENT_CLOSE
             Exit
         Case $btnStart
             Local $aColors = $bIsDark ? $aBtnColor_Dark : $aBtnColor_Light
-            GUICtrlSetBkColor($btnStart, $aColors[2])
-            Sleep(80)
-            GUICtrlSetBkColor($btnStart, $aColors[1])
             If $bRunning Then
                 ActionStop()
-            Else
+                GUICtrlSetBkColor($btnStart, $aColors[1])
+            ElseIf $bAllowStart And Not $bSingleRunning Then
+                GUICtrlSetBkColor($btnStart, $aColors[2])
+                Sleep(80)
+                GUICtrlSetBkColor($btnStart, $aColors[1])
                 ActionStart()
             EndIf
 
@@ -228,7 +240,61 @@ While True
         Case $chkCraftSkip
             $bMazeCraftSkip = (GUICtrlRead($chkCraftSkip) = $GUI_CHECKED)
     EndSwitch
-WEnd
+EndFunc
+
+Func _ResetWatchdogs()
+    $hLoadingWatch = 0
+    $hRecoveryWatch = 0
+    $iRecoveryAttempts = 0
+EndFunc
+
+Func _StopForFailure($sStatus, $sDetail)
+    If Not $bRunning Then Return False
+    ActionStop()
+    GUICtrlSetData($lblStatus, $sStatus)
+    GUICtrlSetColor($lblStatus, 0xFF6666)
+    GUICtrlSetTip($lblStatus, $sDetail)
+    ConsoleWrite($sDetail & @CRLF)
+    If $bWriteLogOn Then WriteLog($sDetail)
+    Return False
+EndFunc
+
+Func _WaitWhileRunning($iMilliseconds)
+    Local $hWait = TimerInit()
+    While $bRunning And TimerDiff($hWait) < $iMilliseconds
+        _HandleGUIMessage(GUIGetMsg(), False)
+        If Not $bRunning Then Return False
+        If Not WinExists($sGameWinTitle) Then Return _StopForFailure(" Game: Missing  ", "Game window disappeared during an operation.")
+        If $hRecoveryWatch <> 0 And TimerDiff($hRecoveryWatch) >= $iRecoveryTimeoutMs Then Return _StopForFailure(" Net: Timeout   ", "Network recovery did not reach a recognized game start within 3 minutes.")
+        Sleep(20)
+    WEnd
+    Return $bRunning
+EndFunc
+
+; Bounded retry: success means a matching image was clicked, not verified game progress.
+Func _WaitForImageClick($sImageFile, $fThreshold, $arrSubArea, $iAttempts, $iDelayMs)
+    For $iAttempt = 1 To $iAttempts
+        If Not $bRunning Then Return False
+        If ClickImage($sImageFile, $fThreshold, 0, 0, False, 2, $arrSubArea) Then Return True
+        If $iAttempt < $iAttempts Then
+            If Not _WaitWhileRunning($iDelayMs) Then Return False
+        EndIf
+    Next
+    Return False
+EndFunc
+
+Func _BuyShopUpgrades($fThreshold, $bCDOn, $iCDFactor, $iDelayMs)
+    Local $hBuy = TimerInit(), $iAttempts = 0
+    While $bRunning
+        If $iAttempts >= $iShopBuyMaxAttempts Or TimerDiff($hBuy) >= $iShopBuyTimeoutMs Then
+            Return _StopForFailure(" Shop: Timeout  ", "Shop upgrade attempts/time limit reached; no further clicks will be sent.")
+        EndIf
+        If Not _ScanAndClickBuy("BuyUpgrade.png", $fThreshold, $bCDOn, $iCDFactor) Then Return $bRunning
+        $iAttempts += 1
+        If Not _WaitWhileRunning($iDelayMs) Then Return False
+    WEnd
+    Return False
+EndFunc
 
 ; Functions
 Func ResetPausingState()
@@ -238,6 +304,9 @@ Func ResetPausingState()
 EndFunc
 
 Func ActionStart()
+    If $bSingleRunning Then Return
+    _ResetWatchdogs()
+    GUICtrlSetTip($lblStatus, "")
     GUICtrlSetData($btnStart, "Stop")
     GUICtrlSetData($lblStatus, "  Status: Running ")
     GUICtrlSetColor($lblStatus, 0x00FF00)
@@ -246,6 +315,8 @@ Func ActionStart()
 EndFunc
 
 Func ActionStop()
+    _ResetWatchdogs()
+    GUICtrlSetTip($lblStatus, "")
     GUICtrlSetData($btnStart, "Start")
     GUICtrlSetData($lblStatus, "  Status: Idle    ")
     GUICtrlSetColor($lblStatus, 0xFFFFFF)
@@ -307,9 +378,10 @@ EndFunc
 ; Return values .: Array of area relative to the game client if find or subarea if provided. Otherwise just silent.
 ; =====================================================================================================================
 Func ImageSearch($sImageFile, $fThreshold = 0.8, $arrSubArea = Default, $iBaseClientHeight = 720)
-    Local $imgTempl = _OpenCV_imread_and_check($sImageFile)
-
     Local $arrArea = _WinAPI_GetClientPos($sGameWinTitle)
+    If Not IsArray($arrArea) Then Return SetError(1, 0, False)
+    If $arrArea[2] <= 0 Or $arrArea[3] <= 0 Then Return SetError(1, 0, False)
+    Local $imgTempl = _OpenCV_imread_and_check($sImageFile)
     Local $iActualHeight = $arrArea[3]
     If $arrSubArea <> Default Then
         $arrArea[0] += $arrSubArea[0]
@@ -358,13 +430,14 @@ EndFunc
 ; $arrArea is the window area. $arrRect is the subarea relative to the window area.
 ; When no shifts, default to click the center of the image($subRect). The shifts are relative to the center.
 Func ClickRelateWindow($arrArea, $arrRect, $iShiftX = 0, $iShiftY = 0, $bBgClick = False)
+    If Not $bRunning Then Return False
     Local $iCenterX = $arrRect[0] + Int($arrRect[2] / 2) + $iShiftX
     Local $iCenterY = $arrRect[1] + Int($arrRect[3] / 2) + $iShiftY
     If $bBgClick Then
         ; Only when this message is accepted, but mostly can't because it's cheat apparently.
-        ControlClick($sGameWinTitle, "", "", "left", 1, $iCenterX, $iCenterY)
+        Return ControlClick($sGameWinTitle, "", "", "left", 1, $iCenterX, $iCenterY)
     Else
-        MouseClick("left", $arrArea[0] + $iCenterX, $arrArea[1] + $iCenterY, 1, 0)
+        Return MouseClick("left", $arrArea[0] + $iCenterX, $arrArea[1] + $iCenterY, 1, 0)
     EndIf
 EndFunc
 
@@ -372,6 +445,7 @@ EndFunc
 ; then if in the next loop the same image is the
 ; "next" detected, skip it for 1 as the CD unit.
 Func ClickImage($sImageFile, $fThreshold = 0.85, $iShiftX = 0, $iShiftY = 0, $bCDOn = False, $iCDMax = 2, $arrSubArea = Default, $iBaseClientHeight = 720)
+    If Not $bRunning Then Return SetError(2, 0, False)
     Static $sCDImageFile = ""
     Static $iCD = 0
 
@@ -391,7 +465,9 @@ Func ClickImage($sImageFile, $fThreshold = 0.85, $iShiftX = 0, $iShiftY = 0, $bC
         $sCDImageFile = $sImageFile
     EndIf
 
+    If Not $bRunning Then Return SetError(2, 0, False)
     Local $arrArea = _WinAPI_GetClientPos($sGameWinTitle)
+    If Not IsArray($arrArea) Then Return SetError(1, 0, False)
     Local $iActualHeight = $arrArea[3]
     If $arrSubArea <> Default Then
         $arrRect[0] += $arrSubArea[0]
@@ -408,7 +484,7 @@ Func ClickImage($sImageFile, $fThreshold = 0.85, $iShiftX = 0, $iShiftY = 0, $bC
         $iShiftY = int($iShiftY * $fProportion)
     EndIf
 
-    ClickRelateWindow($arrArea, $arrRect, $iShiftX, $iShiftY)
+    If Not ClickRelateWindow($arrArea, $arrRect, $iShiftX, $iShiftY) Then Return SetError(2, 0, False)
     Return SetError(0, 0, True)
 EndFunc
 
@@ -418,48 +494,33 @@ Func MazeShopBuying()
     Local $bDefaultCDOn = False, $iDefaultCDFactor = 2
     Local $iDelayAnimate = 1500, $iDelayReaction = 150
 
-    Sleep($iDelayReaction)
-    If Not $bRunning Then Return True
-
-    While _ScanAndClickBuy("BuyUpgrade.png", $fDefaultThreshold, $bDefaultCDOn, $iDefaultCDFactor)
-        Sleep($iDelayAnimate)
-        If Not $bRunning Then Return True
-    WEnd
+    If Not _WaitWhileRunning($iDelayReaction) Then Return True
+    If Not _BuyShopUpgrades($fDefaultThreshold, $bDefaultCDOn, $iDefaultCDFactor, $iDelayAnimate) Then Return True
 
     _MazeShopScroll("down")
-    Sleep($iDelayReaction)
-
-    While _ScanAndClickBuy("BuyUpgrade.png", $fDefaultThreshold, $bDefaultCDOn, $iDefaultCDFactor)
-        Sleep($iDelayAnimate)
-        If Not $bRunning Then Return True
-    WEnd
+    If Not _WaitWhileRunning($iDelayReaction) Then Return True
+    If Not _BuyShopUpgrades($fDefaultThreshold, $bDefaultCDOn, $iDefaultCDFactor, $iDelayAnimate) Then Return True
 
     _MazeShopScroll("up")
-    Sleep($iDelayReaction)
+    If Not _WaitWhileRunning($iDelayReaction) Then Return True
 
     Local $bBoughtB = False
     If _ScanAndClickBuy("BuyInvest.png", $fDefaultThreshold, $bDefaultCDOn, $iDefaultCDFactor) Then
         $bBoughtB = True
-        Sleep($iDelayReaction)
+        If Not _WaitWhileRunning($iDelayReaction) Then Return True
     EndIf
 
     _MazeShopScroll("down")
-    Sleep($iDelayReaction)
-
+    If Not _WaitWhileRunning($iDelayReaction) Then Return True
     If _ScanAndClickBuy("BuyInvest.png", $fDefaultThreshold, $bDefaultCDOn, $iDefaultCDFactor) Then
         $bBoughtB = True
-        Sleep($iDelayReaction)
+        If Not _WaitWhileRunning($iDelayReaction) Then Return True
     EndIf
 
     _MazeShopScroll("up")
-    Sleep($iDelayReaction)
-
-    If Not $bRunning Then Return True
-
+    If Not _WaitWhileRunning($iDelayReaction) Then Return True
     Local $areaCurrency = [1060, 70, 161, 41]
-    If ClickImage($sGameResDir & "MazeRouge\Txt_ShopMon0.png", $fHigherThreshold, -50, 610, $bDefaultCDOn, $iDefaultCDFactor, $areaCurrency) Then
-        Return True
-    EndIf
+    If ClickImage($sGameResDir & "MazeRouge\Txt_ShopMon0.png", $fHigherThreshold, -50, 610, $bDefaultCDOn, $iDefaultCDFactor, $areaCurrency) Then Return True
     Return $bBoughtB
 EndFunc
 
@@ -478,7 +539,7 @@ Func _MazeShopScroll($sDirection = "down")
     If Not $bRunning Then Return
 
     Local $arrArea = _WinAPI_GetClientPos($sGameWinTitle)
-    If @error Then Return
+    If Not IsArray($arrArea) Then Return
 
     Local $iTargetX = $arrArea[0] + Int($arrArea[2] * 0.577)
     Local $iTargetY = $arrArea[1] + Int($arrArea[3] * 0.477)
@@ -517,7 +578,7 @@ Func MazeShopFarming()
 
     Local $arrDailyBatchArea = [1095, 110, 126, 26]
     ClickImage($sGameResDir & "MazeShop\Daily_Batch.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrDailyBatchArea)
-    Sleep($iDelayReaction)
+    If Not _WaitWhileRunning($iDelayReaction) Then Return
 
     Local $aCates[3][5] = [ _
         ["Cate_TypeEquip.png", 19, 302, 126, 26], _
@@ -537,50 +598,37 @@ Func MazeShopFarming()
 EndFunc
 
 Func _MazeShopAbort($fThreshold, $bCD, $iCDFactor)
+    If Not $bRunning Then Return False
     Local $areaShopDoneBtn = [1076, 644, 166, 36]
-    ClickImage($sGameResDir & "MazeShop\WB_ShopDone.png", $fThreshold, 0, 0, $bCD, $iCDFactor, $areaShopDoneBtn)
+    If Not _WaitForImageClick($sGameResDir & "MazeShop\WB_ShopDone.png", $fThreshold, $areaShopDoneBtn, 6, 500) Then
+        Return _StopForFailure(" Shop: Failed   ", "Shop exit button was not found after 6 attempts.")
+    EndIf
     Local $areaAbortOK = [669, 529, 166, 36]
-    Local $iCounter = 0
-    While $bRunning And Not ClickImage($sGameResDir & "MazeRouge\RB_OK.png", $fThreshold, 0, 0, $bCD, $iCDFactor, $areaAbortOK)
-        Sleep(500)
-        If ++$iCounter > 10 Then
-            Break
-        EndIf
-    WEnd
+    If _WaitForImageClick($sGameResDir & "MazeRouge\RB_OK.png", $fThreshold, $areaAbortOK, 11, 500) Then Return True
+    Return _StopForFailure(" Shop: Failed   ", "Shop exit confirmation was not found after 11 attempts.")
 EndFunc
 
 Func MazeNetworkErrored()
-    Local $fDefault = 0.85, $bCD = False, $iCDFactor = 2
-    Local $iSleep = 2000
-    Sleep($iSleep)
+    Local $fDefault = 0.85, $iSleep = 2000
+    If Not _WaitWhileRunning($iSleep) Then Return False
 
-    Local $sHomeQuestPath = $sGameResDir & "Com\Bar_Quest.png"
     Local $areaHomeQuest = [730, 674, 81, 21]
-    Local $iCounter = 0
-    While $bRunning And Not ClickImage($sHomeQuestPath, $fDefault, 0, 0, $bCD, $iCDFactor, $areaHomeQuest)
-        Sleep($iSleep)
-        If ++$iCounter > 5 Then
-            Break
-        EndIf
-    WEnd
+    If Not _WaitForImageClick($sGameResDir & "Com\Bar_Quest.png", $fDefault, $areaHomeQuest, 6, $iSleep) Then
+        Return _StopForFailure(" Net: Failed    ", "Network recovery failed: quest entry was not found after 6 attempts.")
+    EndIf
+    If Not _WaitWhileRunning($iSleep) Then Return False
 
-    Sleep($iSleep)
-
-    Local $sHomeMazePath = $sGameResDir & "HomeQuest\Maze.png"
     Local $areaHomeMaze = [1030, 301, 166, 36]
-    $iCounter = 0
-    While $bRunning And Not ClickImage($sHomeMazePath, $fDefault, 0, 0, $bCD, $iCDFactor, $areaHomeMaze)
-        Sleep($iSleep)
-        If ++$iCounter > 5 Then
-            Break
-        EndIf
-    WEnd
+    If Not _WaitForImageClick($sGameResDir & "HomeQuest\Maze.png", $fDefault, $areaHomeMaze, 6, $iSleep) Then
+        Return _StopForFailure(" Net: Failed    ", "Network recovery failed: maze entry was not found after 6 attempts.")
+    EndIf
+    If Not _WaitWhileRunning($iSleep) Then Return False
 
-    Sleep($iSleep)
-
-    Local $sHomeMazeEntryPath = $sGameResDir & "HomeQuest\MazeEntryA.png"
     Local $areaHomeMazeEntryA = [312, 517, 246, 61]
-    ClickImage($sHomeMazeEntryPath, $fDefault, 0, 0, $bCD, $iCDFactor, $areaHomeMazeEntryA)
+    If Not _WaitForImageClick($sGameResDir & "HomeQuest\MazeEntryA.png", $fDefault, $areaHomeMazeEntryA, 6, $iSleep) Then
+        Return _StopForFailure(" Net: Failed    ", "Network recovery failed: maze start was not found after 6 attempts.")
+    EndIf
+    Return True
 EndFunc
 
 ; Log Function
@@ -596,6 +644,16 @@ EndFunc
 Func AutoClick()
     If Not $bRunning Or $bSingleRunning Then Return
 
+    If Not WinExists($sGameWinTitle) Then
+        _StopForFailure(" Game: Missing  ", "Game window not found.")
+        Return
+    EndIf
+
+    If $hRecoveryWatch <> 0 And TimerDiff($hRecoveryWatch) >= $iRecoveryTimeoutMs Then
+        _StopForFailure(" Net: Timeout   ", "Network recovery did not reach a recognized game start within 3 minutes.")
+        Return
+    EndIf
+
     If $bPausing Then
         $iPausingTimer += $iLoopTimer
         If $iPausingTimer >= $iPausingMax Then
@@ -604,11 +662,7 @@ Func AutoClick()
         Return
     EndIf
 
-    If Not WinExists($sGameWinTitle) Then
-        MsgBox(16, "Error", "Game window not found.")
-        ActionStop()
-        Return
-    EndIf
+
 
     Local $aClientSize = WinGetClientSize($sGameWinTitle)
     Local $iWinWDiff = 1280 - $aClientSize[0]
@@ -632,9 +686,15 @@ Func AutoClick()
 
     Local $arrLoadingArea = [595, 325, 91, 66]
     If IsArray(ImageSearch($sGameResDir & "Com\Sys_Loading.png", $fDefault, $arrLoadingArea)) Then
+        If $hLoadingWatch = 0 Then $hLoadingWatch = TimerInit()
+        If TimerDiff($hLoadingWatch) >= $iLoadingTimeoutMs Then
+            _StopForFailure(" Load: Timeout  ", "Loading remained visible for 120 seconds; automation stopped.")
+            Return
+        EndIf
         ActionPause(1500)
         Return
     EndIf
+    $hLoadingWatch = 0
 
     Local $arrRaidHard = [856, 511, 161, 51]
     ClickImage($sGameResDir & "Com\Raid_Hard.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrRaidHard)
@@ -643,6 +703,8 @@ Func AutoClick()
     If ClickImage($sGameResDir & "MazeRouge\RB_Start.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrRB) Or _
        ClickImage($sGameResDir & "MazeRouge\RB_Route.png", $fLow - 0.05, 0, 0, $bCD, $iCDFactor, $arrRB) Or _
        ClickImage($sGameResDir & "Quest\RB_Enter.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrRB) Then
+        $hRecoveryWatch = 0
+        $iRecoveryAttempts = 0
         ActionPause(2500)
         Return
     EndIf
@@ -657,8 +719,15 @@ Func AutoClick()
     Next
 
     Local $arrRU = [960, 0, 320, 210]
-    If ClickImage($sGameResDir & "Com\Sys_Menu.png", $fDefault, -560, 370, $bCD, $iCDFactor, $arrRU) Then
+    If IsArray(ImageSearch($sGameResDir & "Com\Sys_Menu.png", $fDefault, $arrRU)) Then
+        If $bMazeFarmingOn And $iRecoveryAttempts >= $iRecoveryMaxAttempts Then
+            _StopForFailure(" Net: Repeated  ", "Three consecutive network recovery attempts did not reach a recognized game start.")
+            Return
+        EndIf
+        If Not ClickImage($sGameResDir & "Com\Sys_Menu.png", $fDefault, -560, 370, $bCD, $iCDFactor, $arrRU) Then Return
         If $bMazeFarmingOn Then
+            If $hRecoveryWatch = 0 Then $hRecoveryWatch = TimerInit()
+            $iRecoveryAttempts += 1
             $bSingleRunning = True
             MazeNetworkErrored()
             $bSingleRunning = False
@@ -687,7 +756,7 @@ Func AutoClick()
 
     If $bMazeCraftSkip Then
         If ClickImage($sGameResDir & "MazeRouge\WB_CraftDone.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrCraftDoneArea) Then
-            Sleep($iPopupDelay)
+            If Not _WaitWhileRunning($iPopupDelay) Then Return
             ClickImage($sGameResDir & "MazeRouge\RB_OK.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrXDw)
         EndIf
     EndIf
@@ -721,7 +790,7 @@ Func AutoClick()
     Local $arrDailyUnitArea = [644, 110, 126, 26]
     If ClickImage($sGameResDir & "MazeShop\Daily_Unit.png", $fDefault, 0, 0, $bCD, $iCDFactor, $arrDailyUnitArea) Then
         $bSingleRunning = True
-        Sleep($iTimerReaction)
+        _WaitWhileRunning($iTimerReaction)
         If Not $bRunning Then
             $bSingleRunning = False
             Return
